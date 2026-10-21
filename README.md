@@ -159,14 +159,25 @@ npx serve .
 
 y entra a la dirección que aparece (por ejemplo http://localhost:3000).
 
-## Publicarla en internet (gratis)
+## Dónde está publicada y cómo se actualiza
 
-**Netlify (lo más fácil):** entra a https://app.netlify.com/drop y arrastra la carpeta
-completa `buen-detalle-tienda`. En segundos te da una dirección pública. Después puedes
-conectar tu propio dominio (por ejemplo buendetalle.mx).
+La tienda está publicada con GitHub Pages en
+**https://osvaldoortiz0123-create.github.io/buen-detalle-tienda/**
+desde la rama `main` de este repositorio.
 
-**GitHub Pages:** sube la carpeta a un repositorio y activa Pages en
-*Settings → Pages → Deploy from a branch*.
+- **Productos, precios, fotos y existencias:** se cambian en la hoja de Google. No hay que
+  volver a publicar nada.
+- **Diseño, textos o funciones:** cualquier cambio que se suba a la rama `main` se publica
+  solo en uno o dos minutos. Puedes pedirlo a Claude Code abriendo una sesión con este
+  repositorio, o editar un archivo directamente en github.com (botón del lápiz → *Commit changes*).
+
+### Dominio propio (cuando lo tengas)
+
+1. Compra el dominio en un registrador (por ejemplo, para .mx: Akky, Neubox o GoDaddy).
+2. En el DNS del dominio agrega un registro **CNAME** de `www` (o del subdominio que elijas,
+   como `tienda`) hacia `osvaldoortiz0123-create.github.io`.
+3. En GitHub: *Settings → Pages → Custom domain*, escribe el dominio, guarda y activa
+   *Enforce HTTPS* cuando aparezca disponible.
 
 ## Pruebas automáticas
 
