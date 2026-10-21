@@ -1,0 +1,14 @@
+{
+  "name": "buen-detalle-tienda",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tienda en línea de Buen Detalle Distribuidora con pedidos por WhatsApp",
+  "scripts": {
+    "start": "npx --yes serve .",
+    "test": "node --test tests/calculos.test.js tests/hoja.test.js",
+    "test:e2e": "node tests/e2e.js && node tests/e2e-hoja.js"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}

@@ -1,0 +1,5 @@
+logo.webp y logo.png: logo de la tienda (cabecera y pie de página). Para cambiarlo, reemplaza ambos archivos con el mismo nombre.
+favicon.png e icono-180.png: carita del osito; es el ícono de la pestaña del navegador y del acceso directo en el celular.
+
+Fotos de productos: lo más fácil es subirlas a Google Drive y pegar el enlace en la columna "Foto" de la hoja.
+Si prefieres guardarlas aquí (cuadradas, 800 x 800 px, JPG o WebP), escribe en la columna "Foto" solo el nombre del archivo, por ejemplo: estrella-dorada.jpg
