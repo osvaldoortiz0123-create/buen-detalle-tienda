@@ -502,7 +502,7 @@
       return halo(c) + hilo(100, 178, 100, 198) + globoLatex(l, 100, 92, 2.1, c, estilo);
     }
     var mayor = Math.max.apply(null, medidas);
-    var altoMayor = 100, base = 160, hueco = 10;
+    var altoMayor = 100, base = 150, hueco = 10;
     var escalas = medidas.map(function (m) { return (altoMayor * m / mayor) / 80; });
     var anchos = escalas.map(function (e) { return 68 * e; });
     var x = 100 - (anchos.reduce(function (a, b) { return a + b; }, 0) + hueco * (medidas.length - 1)) / 2;
