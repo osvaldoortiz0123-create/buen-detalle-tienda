@@ -256,7 +256,8 @@ test('el producto Sempertex de ejemplo se exporta en 3 filas y vuelve igual', ()
   assert.equal(filas.length, 4);
   const col = Object.fromEntries(filas[0].map((t, i) => [t, i]));
   assert.deepEqual(filas.slice(1).map((f) => f[col['Presentación']]), ['5"', '12"', '18"']);
-  assert.ok(filas.slice(1).every((f) => f[col['Colores']] === 'Carta Sempertex'));
+  assert.ok(filas.slice(1).every((f) => f[col['Colores']] === 'Sempertex Fashion, Sempertex Pastel Mate, Sempertex Neón, Sempertex Pastel Dusk, Sempertex Satín, Sempertex Silk, Sempertex Metálico'));
+  assert.ok(filas.slice(1).every((f) => f[col['Código']] === 'globo-sempertex-redondo'));
   const r = H.productosDesdeFilas(H.leerCSV(H.aCSV(filas)), ctx);
   assert.deepEqual(r.problemas, []);
   const p = r.productos[0];
@@ -292,4 +293,20 @@ test('tamaños: el código de las filas fija el enlace del producto', () => {
   assert.equal(distintos.productos.length, 1);
   assert.equal(distintos.productos[0].id, 'uno');
   assert.match(distintos.problemas[0].mensaje, /códigos distintos/);
+});
+
+test('Sempertex Reflex: dos presentaciones de 18" en el mismo producto', () => {
+  const reflex = globalThis.PRODUCTOS.find((p) => p.id === 'globo-sempertex-reflex-redondo');
+  const filas = H.filasDesdeProductos([reflex], ctx);
+  const col = Object.fromEntries(filas[0].map((t, i) => [t, i]));
+  assert.deepEqual(filas.slice(1).map((f) => f[col['Presentación']]), ['5"', '12"', '18" (15 pz)', '18" (25 pz)']);
+  assert.ok(filas.slice(1).every((f) => f[col['Colores']] === 'Sempertex Reflex'));
+  const r = H.productosDesdeFilas(H.leerCSV(H.aCSV(filas)), ctxSinEjemplos);
+  assert.deepEqual(r.problemas, []);
+  const p = r.productos[0];
+  assert.equal(p.id, 'globo-sempertex-reflex-redondo');
+  assert.deepEqual(p.variantes[0].opciones.map((o) => [o.nombre, o.precio, o.mayoreo.precio, o.mayoreo.min]),
+    [['5"', 124, 99, 12], ['12"', 314, 251.21, 12], ['18" (15 pz)', 398, 318, 12], ['18" (25 pz)', 687, 550, 12]]);
+  assert.deepEqual(p.dibujo.tamanos, [5, 12, 18]);
+  assert.equal(p.variantes[1].opciones.length, 11);
 });

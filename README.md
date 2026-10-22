@@ -48,7 +48,7 @@ plantilla-productos.xlsx  plantilla de la hoja de productos (con los ejemplos)
 js/calculos.js        mayoreo, peso y costo de envío
 js/dibujos.js         ilustraciones de ejemplo mientras no hay fotos
 js/app.js             funcionamiento de la tienda
-img/                  logo (logo.webp y logo.png), ícono del osito (favicon.png,
+img/                  logo (logo.webp y logo.png), logos de marcas (marcas/), ícono del osito (favicon.png,
                       icono-180.png) y fotos de productos si no usas Google Drive
 tests/                pruebas automáticas
 ```
@@ -98,6 +98,12 @@ En "Colores" se puede escribir **Carta Sempertex** (85 tonos), una familia como
 se ven en pantalla están en `js/cartas.js`; la pestaña "Carta Sempertex" de la plantilla los
 lista. En la tienda el cliente ve la carta en globitos de color, filtra por familia, elige el
 tono y el tamaño, y ve una vista previa del globo comparado con los otros tamaños.
+
+Los productos con "Sempertex" en el nombre o con tonos de la carta llevan el logo de la marca
+(`img/marcas/sempertex.webp`) en su tarjeta y su página, y aparecen en la sección
+**Globos Sempertex** (`tudominio/#/marca/sempertex`, enlazada en el menú y en la portada).
+Dos bolsas del mismo tamaño con distinta cantidad van en filas separadas del mismo producto,
+por ejemplo `18" (15 pz)` y `18" (25 pz)`, como en el globo Sempertex Reflex.
 
 No cambies el **Código** de un producto ya publicado: lo usan los carritos y los enlaces
 que hayas compartido. No cambies los encabezados ni el orden de las pestañas

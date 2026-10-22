@@ -111,7 +111,9 @@ window.COLORES = {
   };
 
   // Los 85 tonos de la carta Sempertex (js/cartas.js).
-  var SEMPERTEX = window.Hoja.tonosDeCarta(window.CARTAS, 'sempertex');
+  // Reflex tiene su propio precio, así que va en un producto aparte.
+  var SEMPERTEX = window.Hoja.tonosDeCarta(window.CARTAS, 'sempertex').filter(function (t) { return t.familia !== 'Reflex'; });
+  var SEMPERTEX_REFLEX = window.Hoja.tonosDeCarta(window.CARTAS, 'sempertex', 'reflex');
 
   var FOIL = [
     ['Medida', '18 in (45 cm)'], ['Material', 'Foil metalizado'],
@@ -291,14 +293,14 @@ window.COLORES = {
     {
       id: 'globo-sempertex-redondo', nombre: 'Globo Sempertex redondo', categoria: 'globos-latex',
       tematicas: ['cumpleanos', 'infantil', 'baby-shower', 'revelacion', 'xv-anos', 'bodas', 'graduacion', 'navidad'],
-      precio: 55, mayoreo: { min: 12, precio: 44 }, unidad: 'bolsa con 100 piezas', peso: 120,
-      descripcion: 'Globo redondo de látex Sempertex con colores firmes y acabado parejo. Elige el tono en la carta de colores y el tamaño: 5" para arcos orgánicos y rellenos, 12" para decoración en general y 18" para dar volumen.',
-      detalles: [['Marca', 'Sempertex'], ['Forma', 'Redondo'], ['Material', 'Látex natural'], ['Tamaños', '5" (13 cm), 12" (30 cm) y 18" (46 cm)'], ['Tonos', '85, en 8 familias: Fashion, Pastel Mate, Neón, Pastel Dusk, Satín, Silk, Metálico y Reflex']],
+      precio: 55, mayoreo: { min: 12, precio: 44 }, unidad: 'bolsa con 50 piezas', peso: 60,
+      descripcion: 'Globo redondo de látex Sempertex con colores firmes y acabado parejo. Elige el tono en la carta de colores y el tamaño: 5" para arcos orgánicos y rellenos, 12" para decoración en general y 18" para dar volumen. El acabado espejo está en el Globo Sempertex Reflex.',
+      detalles: [['Marca', 'Sempertex'], ['Forma', 'Redondo'], ['Material', 'Látex natural'], ['Tamaños', '5" (13 cm), 12" (30 cm) y 18" (46 cm)'], ['Tonos', '74, en 7 familias: Fashion, Pastel Mate, Neón, Pastel Dusk, Satín, Silk y Metálico']],
       variantes: [
         {
           nombre: 'Tamaño', tipo: 'tamano',
           opciones: [
-            { nombre: '5"', precio: 55, mayoreo: { min: 12, precio: 44 }, unidad: 'bolsa con 100 piezas', peso: 120, dibujo: { tamano: 5 } },
+            { nombre: '5"', precio: 55, mayoreo: { min: 12, precio: 44 }, unidad: 'bolsa con 50 piezas', peso: 60, dibujo: { tamano: 5 } },
             { nombre: '12"', precio: 127, mayoreo: { min: 12, precio: 112 }, unidad: 'bolsa con 50 piezas', peso: 170, dibujo: { tamano: 12 } },
             { nombre: '18"', precio: 235, mayoreo: { min: 12, precio: 188 }, unidad: 'bolsa con 25 piezas', peso: 240, dibujo: { tamano: 18 } }
           ]
@@ -307,6 +309,27 @@ window.COLORES = {
       ],
       dibujo: Object.assign(window.Hoja.dibujoDeCarta(SEMPERTEX), { tamanos: [5, 12, 18] }),
       etiquetas: 'sempertex latex redondo carta de colores tonos r5 r12 r18 arco', destacado: true, nuevo: true
+    },
+    {
+      id: 'globo-sempertex-reflex-redondo', nombre: 'Globo Sempertex Reflex redondo', categoria: 'globos-latex',
+      tematicas: ['cumpleanos', 'bodas', 'xv-anos', 'graduacion', 'navidad'],
+      precio: 124, mayoreo: { min: 12, precio: 99 }, unidad: 'bolsa con 50 piezas', peso: 60,
+      descripcion: 'Globo Sempertex Reflex con efecto espejo, tipo cromo. Brilla como metal y luce en arcos, columnas y decoraciones de lujo. El 18" viene en bolsa de 15 o de 25 piezas.',
+      detalles: [['Marca', 'Sempertex'], ['Forma', 'Redondo'], ['Acabado', 'Reflex (efecto espejo)'], ['Tamaños', '5" (13 cm), 12" (30 cm) y 18" (46 cm)'], ['Tonos', '11 tonos Reflex']],
+      variantes: [
+        {
+          nombre: 'Tamaño', tipo: 'tamano',
+          opciones: [
+            { nombre: '5"', precio: 124, mayoreo: { min: 12, precio: 99 }, unidad: 'bolsa con 50 piezas', peso: 60, dibujo: { tamano: 5 } },
+            { nombre: '12"', precio: 314, mayoreo: { min: 12, precio: 251.21 }, unidad: 'bolsa con 50 piezas', peso: 170, dibujo: { tamano: 12 } },
+            { nombre: '18" (15 pz)', precio: 398, mayoreo: { min: 12, precio: 318 }, unidad: 'bolsa con 15 piezas', peso: 150, dibujo: { tamano: 18 } },
+            { nombre: '18" (25 pz)', precio: 687, mayoreo: { min: 12, precio: 550 }, unidad: 'bolsa con 25 piezas', peso: 240, dibujo: { tamano: 18 } }
+          ]
+        },
+        { nombre: 'Color', tipo: 'color', opciones: SEMPERTEX_REFLEX }
+      ],
+      dibujo: Object.assign(window.Hoja.dibujoDeCarta(SEMPERTEX_REFLEX), { tamanos: [5, 12, 18] }),
+      etiquetas: 'sempertex reflex cromo espejo metalico latex redondo r5 r12 r18', nuevo: true
     },
     {
       id: 'globo-latex-12-estandar-50', nombre: 'Globo de látex 12" estándar, bolsa 50 pzas', categoria: 'globos-latex',

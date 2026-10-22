@@ -12,6 +12,7 @@
 window.CARTAS = {
   sempertex: {
     nombre: 'Sempertex',
+    logo: 'img/marcas/sempertex.webp', logoAncho: 554, logoAlto: 180,
     familias: [
       {
         id: 'fashion', nombre: 'Fashion', acabado: 'mate',

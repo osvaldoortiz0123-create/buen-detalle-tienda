@@ -185,6 +185,7 @@
     return `<a class="tarjeta${agotado ? ' tarjeta-agotada' : ''}" href="#/producto/${p.id}">
       <div class="tarjeta-img">${imagenDe(p)}${insignia}</div>
       <div class="tarjeta-info">
+        ${marcaDe(p) ? `<p class="tarjeta-marca">${logoMarca(marcaDe(p), 'marca-logo-tarjeta')}</p>` : ''}
         <h3 class="tarjeta-nombre">${esc(p.nombre)}</h3>
         <p class="tarjeta-precio">${desde ? '<span class="tarjeta-desde">Desde</span> ' : ''}${precio(Math.min(...precios))}</p>
         <p class="tarjeta-unidad">${tam ? esc(tam.opciones.map((o) => o.nombre).join(' · ')) : `por ${esc(p.unidad)}`}</p>
@@ -341,6 +342,7 @@
     if (n.length < 3) return [];
     return [
       ...CATS.filter((c) => normalizar(c.nombre).includes(n)).map((c) => ({ href: `#/categoria/${c.id}`, nombre: c.nombre, tipo: 'Categoría' })),
+      ...marcasConProductos().filter((m) => normalizar(`globos ${m.nombre}`).includes(n)).map((m) => ({ href: `#/marca/${m.id}`, nombre: `Globos ${m.nombre}`, tipo: 'Marca' })),
       ...temasConProductos().filter((t) => normalizar(t.nombre).includes(n)).map((t) => ({ href: `#/tematica/${t.id}`, nombre: t.nombre, tipo: 'Temática' }))
     ].slice(0, 3);
   }
@@ -415,12 +417,20 @@
     flotante.innerHTML = `${I.whatsapp}<span class="oculto">Escríbenos por WhatsApp</span>`;
   }
 
-  // Productos con carta de colores (Sempertex) tienen su propio apartado en el menú y la portada.
-  const productosConCarta = () => PRODS.filter((p) => (p.variantes || []).some(esCarta));
-  function nombreApartado(p) {
-    const g = p.variantes.find(esCarta);
-    const carta = g.opciones.find((o) => o.carta);
-    return carta ? `Globos ${carta.carta}` : p.nombre;
+  /* ---------- Marcas con carta de colores (Sempertex): logo, sección y portada ---------- */
+  const MARCAS = Object.entries(window.CARTAS || {}).map(([id, c]) => ({ id, nombre: c.nombre, logo: c.logo, ancho: c.logoAncho, alto: c.logoAlto }));
+
+  // Un producto es de la marca si usa su carta de colores o la nombra.
+  function marcaDe(p) {
+    return MARCAS.find((m) => (p.variantes || []).some((g) => g.opciones.some((o) => o.carta === m.nombre)) ||
+      normalizar(p.nombre).split(' ').includes(normalizar(m.nombre))) || null;
+  }
+  const productosDeMarca = (m) => PRODS.filter((p) => marcaDe(p) === m);
+  const marcasConProductos = () => MARCAS.filter((m) => productosDeMarca(m).length);
+
+  function logoMarca(m, clase) {
+    if (!m.logo) return esc(m.nombre);
+    return `<img class="marca-logo ${clase}" src="${esc(m.logo)}" alt="${esc(m.nombre)}" width="${m.ancho}" height="${m.alto}">`;
   }
 
   function pintarNavegacion() {
@@ -428,7 +438,7 @@
     if (!fila) return;
     fila.innerHTML = `
       ${CATS.map((c) => `<a href="#/categoria/${c.id}" data-nav="categoria/${c.id}">${esc(c.nombre)}</a>`).join('')}
-      ${productosConCarta().map((p) => `<a href="#/producto/${p.id}" data-nav="producto/${p.id}">${esc(nombreApartado(p))}</a>`).join('')}
+      ${marcasConProductos().map((m) => `<a class="nav-marca" href="#/marca/${m.id}" data-nav="marca/${m.id}">Globos ${logoMarca(m, 'marca-logo-nav')}</a>`).join('')}
       <a href="#/tematicas" data-nav="tematicas">Temáticas</a>
       <a href="#/envios" data-nav="envios">Envíos y cómo comprar</a>`;
   }
@@ -552,7 +562,7 @@
         </div>
       </section>
 
-      ${productosConCarta().filter((p) => p.estado !== 'agotado').map(bandaCarta).join('')}
+      ${marcasConProductos().map(bandaMarca).join('')}
 
       <section class="seccion contenedor">
         <div class="seccion-cabeza"><h2>Compra por temática</h2><a class="ver-todo" href="#/tematicas">Ver todas</a></div>
@@ -589,24 +599,48 @@
     return T.nombre;
   }
 
-  // Banda de portada para un producto con carta de colores.
-  function bandaCarta(p) {
-    const g = p.variantes.find(esCarta);
-    const tam = grupoTamano(p);
-    const familias = [...new Set(g.opciones.map((o) => o.familia).filter(Boolean))];
-    const paso = Math.max(1, g.opciones.length / 28);
-    const muestra = Array.from({ length: Math.min(28, g.opciones.length) }, (_, i) => g.opciones[Math.floor(i * paso)]);
+  // Tonos (sin repetir) y medidas de todos los productos de una marca.
+  function cartaDeMarca(m) {
+    const tonos = [], vistos = new Set(), medidas = new Set();
+    disponibles(productosDeMarca(m)).forEach((p) => (p.variantes || []).forEach((g) => {
+      if (g.tipo === 'tamano') g.opciones.forEach((o) => { if (o.dibujo && o.dibujo.tamano) medidas.add(o.dibujo.tamano); });
+      if (esCarta(g)) g.opciones.forEach((o) => { if (!vistos.has(o.nombre)) { vistos.add(o.nombre); tonos.push(o); } });
+    }));
+    return { tonos, medidas: [...medidas].sort((a, b) => a - b).map((n) => `${n}"`), familias: [...new Set(tonos.map((o) => o.familia).filter(Boolean))] };
+  }
+
+  const enLista = (lista) => lista.join(', ').replace(/, ([^,]*)$/, ' y $1');
+
+  // Banda de portada de una marca con carta de colores.
+  function bandaMarca(m) {
+    const { tonos, medidas, familias } = cartaDeMarca(m);
+    if (!tonos.length) return '';
+    const paso = Math.max(1, tonos.length / 28);
+    const muestra = Array.from({ length: Math.min(28, tonos.length) }, (_, i) => tonos[Math.floor(i * paso)]);
     return `<section class="seccion contenedor">
-      <a class="banda-carta" href="#/producto/${p.id}">
+      <a class="banda-carta" href="#/marca/${m.id}">
         <div class="banda-carta-texto">
-          <p class="sobretitulo">Carta de colores</p>
-          <h2>${esc(nombreApartado(p))}: ${g.opciones.length} tonos${tam ? ` en ${esc(tam.opciones.map((o) => o.nombre).join(', ').replace(/, ([^,]*)$/, ' y $1'))}` : ''}</h2>
-          <p>Elige el tono exacto y el tamaño.${familias.length ? ` Familias ${esc(familias.join(', ').replace(/, ([^,]*)$/, ' y $1'))}.` : ''}</p>
-          <span class="boton boton-primario">Elegir tono</span>
+          ${logoMarca(m, 'marca-logo-banda')}
+          <h2><span class="oculto">Globos ${esc(m.nombre)}: </span>${tonos.length} tonos${medidas.length ? ` en ${esc(enLista(medidas))}` : ''}</h2>
+          <p>Elige el tono exacto y el tamaño.${familias.length ? ` Familias ${esc(enLista(familias))}.` : ''}</p>
+          <span class="boton boton-primario">Ver la carta de colores</span>
         </div>
         <div class="banda-carta-tonos" aria-hidden="true">${muestra.map((o) => `<span class="tono-globo acabado-${esc(o.acabado || 'mate')}" style="--c:${o.color}"></span>`).join('')}</div>
       </a>
     </section>`;
+  }
+
+  function vistaMarca(id) {
+    const m = MARCAS.find((x) => x.id === id);
+    if (!m || !productosDeMarca(m).length) return vistaNoEncontrada();
+    const { tonos, medidas } = cartaDeMarca(m);
+    return vistaListado({
+      titulo: `Globos ${m.nombre}`, logo: m,
+      sub: `Carta de ${tonos.length} tonos${medidas.length ? ` en ${enLista(medidas)}` : ''}. Entra a un producto para elegir el tono y el tamaño.`,
+      fijo: { categoria: 'marca', tematica: 'marca' },
+      base: productosDeMarca(m),
+      migas: [['Inicio', '#/'], [`Globos ${m.nombre}`]]
+    });
   }
 
   function chipTema(t) {
@@ -683,6 +717,7 @@
         ${migas(ctx.migas)}
         <div class="listado-cabeza">
           <div>
+            ${ctx.logo ? logoMarca(ctx.logo, 'marca-logo-titulo') : ''}
             <h1 class="pagina-titulo">${esc(ctx.titulo)}</h1>
             ${ctx.sub ? `<p class="pagina-sub">${esc(ctx.sub)}</p>` : ''}
           </div>
@@ -792,14 +827,22 @@
       .map((x) => ({ x, n: x.tematicas.filter((t) => p.tematicas.includes(t)).length + (x.categoria === p.categoria ? 1 : 0) }))
       .sort((a, b) => b.n - a.n).slice(0, 6).map((r) => r.x);
     const efectivo = () => productoEfectivo(p, sel);
+    const marca = marcaDe(p);
     const cm = (o) => (o.dibujo && o.dibujo.tamano ? `${Math.round(o.dibujo.tamano * 2.54)} cm` : '');
+    // '18" (15 pz)' -> medida grande 18" y "15 pz" junto a los centímetros.
+    const medidaDe = (o) => {
+      const n = o.dibujo && o.dibujo.tamano;
+      if (!n) return { medida: o.nombre, extra: '' };
+      const extra = o.nombre.replace(/^\s*[\d.]+\s*("|”|''|in\b|pulgadas?)?\s*/i, '').replace(/^\((.*)\)$/, '$1').trim();
+      return { medida: `${n}"`, extra };
+    };
 
     const tamanosHtml = (g, gi) => `<div class="var-grupo">
       <p class="var-titulo" id="var-t-${gi}">${esc(g.nombre)}: <strong data-actual="${gi}">${esc(sel[g.nombre] || '')}</strong></p>
       <div class="tamanos" role="group" aria-labelledby="var-t-${gi}">${g.opciones.map((o) => `
         <button type="button" class="tamano" data-grupo="${gi}" data-op="${esc(o.nombre)}" aria-pressed="false"${o.agotado ? ' disabled' : ''}>
-          <span class="tamano-medida">${esc(o.nombre)}</span>
-          ${cm(o) ? `<span class="tamano-cm">${cm(o)}</span>` : ''}
+          <span class="tamano-medida">${esc(medidaDe(o).medida)}</span>
+          ${cm(o) || medidaDe(o).extra ? `<span class="tamano-cm">${esc([cm(o), medidaDe(o).extra].filter(Boolean).join(' · '))}</span>` : ''}
           <span class="tamano-precio">${o.agotado ? 'Agotado' : precio(o.precio ?? p.precio)}</span>
           <span class="tamano-unidad">${esc(o.unidad || p.unidad)}</span>
         </button>`).join('')}
@@ -863,7 +906,7 @@
 
     vista.innerHTML = `
       <div class="contenedor pagina${conTonos && !agotado ? ' pagina-con-barra' : ''}">
-        ${migas([['Inicio', '#/'], [c.nombre, `#/categoria/${c.id}`], [p.nombre]])}
+        ${migas([['Inicio', '#/'], marca ? [`Globos ${marca.nombre}`, `#/marca/${marca.id}`] : [c.nombre, `#/categoria/${c.id}`], [p.nombre]])}
         <article class="producto">
           <div class="producto-galeria">
             <div class="producto-img" id="pp-img">${imagenDe(p, sel)}</div>
@@ -871,6 +914,7 @@
           </div>
           <div class="producto-info">
             <p class="producto-cat"><a href="#/categoria/${c.id}">${esc(c.nombre)}</a>${agotado ? '<span class="insignia insignia-linea insignia-agotado">Agotado</span>' : p.nuevo ? '<span class="insignia insignia-linea">Nuevo</span>' : ''}</p>
+            ${marca ? `<a class="producto-marca" href="#/marca/${marca.id}">${logoMarca(marca, 'marca-logo-producto')}</a>` : ''}
             <h1 class="producto-nombre">${esc(p.nombre)}</h1>
             <div id="pp-precio"></div>
             ${agotado ? `<p class="aviso-agotado"><strong>Agotado por ahora.</strong> Pregúntanos por WhatsApp cuándo vuelve a llegar o si tenemos algo parecido.</p>` : ''}
@@ -902,7 +946,7 @@
           <div class="producto-ficha">
             <h2>Características</h2>
             <dl class="ficha">
-              ${(p.detalles || []).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}
+              ${(p.detalles || []).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${k === 'Marca' && marca && normalizar(v) === normalizar(marca.nombre) ? logoMarca(marca, 'marca-logo-ficha') : esc(v)}</dd></div>`).join('')}
               ${fichaVenta}
             </dl>
           </div>
@@ -1771,6 +1815,7 @@
       case 'categoria': titulo = vistaCategoria(param); break;
       case 'tematica': titulo = vistaTematica(param); break;
       case 'tematicas': titulo = vistaTematicas(); break;
+      case 'marca': titulo = vistaMarca(param); break;
       case 'buscar': titulo = vistaBusqueda(param); break;
       case 'producto': titulo = vistaProducto(param); break;
       case 'carrito': titulo = vistaCarrito(); break;

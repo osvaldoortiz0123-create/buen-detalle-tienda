@@ -721,7 +721,7 @@
     } else {
       g.dibujo = colores.some(function (o) { return o.carta; }) ? dibujoDeCarta(colores) : copia(primero.dibujo);
       var medidas = tamanos.opciones.map(function (t) { return t.dibujo && t.dibujo.tamano; });
-      if (medidas.every(Boolean)) g.dibujo.tamanos = medidas;
+      if (medidas.every(Boolean)) g.dibujo.tamanos = medidas.filter(function (m, i) { return medidas.indexOf(m) === i; });
     }
     if (filas.every(function (f) { return f.sinFoto; })) g.sinFoto = true;
     g.filas = filas.map(function (f) { return f.fila; });

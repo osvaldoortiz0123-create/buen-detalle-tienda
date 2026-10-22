@@ -732,6 +732,19 @@ svg[aria-hidden="true"] { flex: none; }
   .pagina-con-barra { padding-bottom: 36px; }
 }
 
+/* Logos de marca (Sempertex) */
+.marca-logo { display: block; width: auto; max-width: 100%; height: 30px; }
+.navegacion-fila > a { flex: none; }
+.nav-marca { display: inline-flex; align-items: center; gap: 6px; }
+.marca-logo-nav { display: inline-block; height: 20px; }
+.tarjeta-marca { margin-top: 2px; }
+.marca-logo-tarjeta { height: 20px; }
+.producto-marca { align-self: flex-start; margin-top: -8px; margin-bottom: -6px; border-radius: 6px; }
+.marca-logo-producto { height: 36px; }
+.marca-logo-banda { height: 56px; margin-bottom: 6px; }
+.marca-logo-titulo { height: 64px; margin-bottom: 10px; }
+.marca-logo-ficha { height: 24px; }
+
 /* Banda de portada de la carta de colores. */
 .banda-carta {
   display: grid; gap: 18px; align-items: center; padding: 22px; border-radius: var(--radio);
