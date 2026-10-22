@@ -291,16 +291,16 @@ window.COLORES = {
     {
       id: 'globo-sempertex-redondo', nombre: 'Globo Sempertex redondo', categoria: 'globos-latex',
       tematicas: ['cumpleanos', 'infantil', 'baby-shower', 'revelacion', 'xv-anos', 'bodas', 'graduacion', 'navidad'],
-      precio: 135, mayoreo: { min: 6, precio: 120 }, unidad: 'bolsa con 100 piezas', peso: 120,
+      precio: 55, mayoreo: { min: 12, precio: 44 }, unidad: 'bolsa con 100 piezas', peso: 120,
       descripcion: 'Globo redondo de látex Sempertex con colores firmes y acabado parejo. Elige el tono en la carta de colores y el tamaño: 5" para arcos orgánicos y rellenos, 12" para decoración en general y 18" para dar volumen.',
       detalles: [['Marca', 'Sempertex'], ['Forma', 'Redondo'], ['Material', 'Látex natural'], ['Tamaños', '5" (13 cm), 12" (30 cm) y 18" (46 cm)'], ['Tonos', '85, en 8 familias: Fashion, Pastel Mate, Neón, Pastel Dusk, Satín, Silk, Metálico y Reflex']],
       variantes: [
         {
           nombre: 'Tamaño', tipo: 'tamano',
           opciones: [
-            { nombre: '5"', precio: 135, mayoreo: { min: 6, precio: 120 }, unidad: 'bolsa con 100 piezas', peso: 120, dibujo: { tamano: 5 } },
-            { nombre: '12"', precio: 175, mayoreo: { min: 6, precio: 155 }, unidad: 'bolsa con 50 piezas', peso: 170, dibujo: { tamano: 12 } },
-            { nombre: '18"', precio: 265, mayoreo: { min: 6, precio: 240 }, unidad: 'bolsa con 25 piezas', peso: 240, dibujo: { tamano: 18 } }
+            { nombre: '5"', precio: 55, mayoreo: { min: 12, precio: 44 }, unidad: 'bolsa con 100 piezas', peso: 120, dibujo: { tamano: 5 } },
+            { nombre: '12"', precio: 127, mayoreo: { min: 12, precio: 112 }, unidad: 'bolsa con 50 piezas', peso: 170, dibujo: { tamano: 12 } },
+            { nombre: '18"', precio: 235, mayoreo: { min: 12, precio: 188 }, unidad: 'bolsa con 25 piezas', peso: 240, dibujo: { tamano: 18 } }
           ]
         },
         { nombre: 'Color', tipo: 'color', opciones: SEMPERTEX }

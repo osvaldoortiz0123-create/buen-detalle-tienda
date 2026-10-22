@@ -242,38 +242,42 @@ async function paso(nombre, fn) {
     await page.click('#pp-agregar');
     assert.ok(await page.isVisible('#pp-tonos-aviso'));
     assert.ok(await page.isHidden('[data-contador]'));
-    // 12": 4 dorados reflex + 2 rojos = 6 bolsas -> mayoreo de 12".
+    // 12": 8 dorados reflex + 4 rojos = 12 bolsas -> mayoreo de 12".
     await page.click('button.tamano[data-op="12\\""]');
     await page.click('.tonos-filtro button[data-familia="Reflex"]');
     assert.ok(await page.isHidden('.tonos-familia[data-familia="Fashion"]'));
     await page.click('button.tono[data-op="970 Dorado"]');
     assert.match(await page.textContent('#pp-nota-img'), /970 Dorado · Reflex · 12"/);
     assert.match(await page.textContent('#barra-tono'), /970 Dorado/);
-    await page.fill('#pp-cantidad', '4');
+    assert.match(await page.textContent('.precio-grande'), /\$127/);
+    await page.fill('#pp-cantidad', '8');
     await page.dispatchEvent('#pp-cantidad', 'change');
     await page.click('#barra-agregar');
     await page.click('.tonos-filtro button[data-familia=""]');
     await page.click('button.tono[data-op="015 Rojo"]');
+    await page.fill('#pp-cantidad', '3');
+    await page.dispatchEvent('#pp-cantidad', 'change');
+    assert.match(await page.textContent('.mayoreo-linea'), /Te falta 1/);
     await page.click('[data-paso="1"]');
     assert.match(await page.textContent('.mayoreo-linea'), /Precio de mayoreo aplicado/);
     await page.click('#pp-agregar');
     // 5" es otro precio y no suma al mayoreo de 12".
     await page.click('button.tamano[data-op="5\\""]');
-    assert.match(await page.textContent('.precio-grande'), /\$135/);
+    assert.match(await page.textContent('.precio-grande'), /\$55/);
     assert.match(await page.textContent('#pp-tonos [data-actual]'), /015 Rojo/);
     await page.click('#pp-agregar');
-    assert.equal(await page.textContent('[data-contador]'), '7');
+    assert.equal(await page.textContent('[data-contador]'), '13');
 
     await page.click('.cabecera-carrito');
     await page.waitForSelector('.linea');
     const lineas = await page.$$eval('.linea', (els) => els.map((e) => e.innerText.replace(/\s+/g, ' ')));
     assert.equal(lineas.length, 3);
-    assert.ok(/Tamaño: 12" · Color: 970 Dorado/.test(lineas[0]) && /\$155\.00 c\/u/.test(lineas[0]), lineas[0]);
-    assert.ok(/Tamaño: 12" · Color: 015 Rojo/.test(lineas[1]) && /\$155\.00 c\/u/.test(lineas[1]), lineas[1]);
-    assert.ok(/Tamaño: 5" · Color: 015 Rojo/.test(lineas[2]) && /\$135\.00 c\/u/.test(lineas[2]), lineas[2]);
+    assert.ok(/Tamaño: 12" · Color: 970 Dorado/.test(lineas[0]) && /\$112\.00 c\/u/.test(lineas[0]), lineas[0]);
+    assert.ok(/Tamaño: 12" · Color: 015 Rojo/.test(lineas[1]) && /\$112\.00 c\/u/.test(lineas[1]), lineas[1]);
+    assert.ok(/Tamaño: 5" · Color: 015 Rojo/.test(lineas[2]) && /\$55\.00 c\/u/.test(lineas[2]), lineas[2]);
     assert.equal(await page.getAttribute('.linea-nombre', 'href'), '#/producto/globo-sempertex-redondo');
     const texto = await page.evaluate(() => window.BuenDetalle.mensajePedido('PRUEBA'));
-    assert.match(texto, /Globo Sempertex redondo \(Tamaño: 12" · Color: 970 Dorado\)\n   4 × \$155\.00 = \$620\.00 \(mayoreo\)/);
+    assert.match(texto, /Globo Sempertex redondo \(Tamaño: 12" · Color: 970 Dorado\)\n   8 × \$112\.00 = \$896\.00 \(mayoreo\)/);
     // El buscador encuentra la carta por familia o código.
     for (const q of ['reflex', '970', 'sempertex']) {
       await ir(`#/buscar/${q}`);
