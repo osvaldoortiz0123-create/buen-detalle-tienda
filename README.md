@@ -87,7 +87,7 @@ lo esencial:
 | Otra opción / Valores | Por ejemplo "Número" con "0-9", "Letra" con "A-Z", "Diseño" con "Navidad, Baby". |
 | Foto | Enlace de Google Drive (foto compartida con cualquiera con el enlace). Vacío = ilustración. |
 | Estado | **Visible**, **Agotado** (se ve pero no se compra) u **Oculto** (no aparece). |
-| Presentación | Para varios tamaños: una fila por tamaño con el **mismo nombre** y aquí `5"`, `12"`, `18"`. Cada fila lleva su precio, mayoreo, peso y "Se vende por". |
+| Presentación | Para varios tamaños: una fila por tamaño con el **mismo nombre** (y el mismo código) y aquí `5"`, `12"`, `18"`. Cada fila lleva su precio, mayoreo, peso y "Se vende por". |
 | Colores agotados | Colores o códigos sin existencia (`015, 390`). En un producto con tamaños, solo afecta a esa fila. |
 
 ### Carta de colores Sempertex

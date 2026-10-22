@@ -448,7 +448,11 @@
         nuevo: siNo(v('nuevo')),
         fila: numFila
       };
-      if (presentacion) p.presentacion = presentacion;
+      if (presentacion) {
+        p.presentacion = presentacion;
+        // El código de las filas de un producto con tamaños fija el enlace del producto.
+        if (v('codigo')) p.codigoGrupo = slug(v('codigo'));
+      }
 
       // Mayoreo
       var pm = numero(v('precioMayoreo')), md = numero(v('mayoreoDesde'));
@@ -629,7 +633,11 @@
     }
     var primero = lista[0];
 
-    var id = slug(base.nombre);
+    var codigos = filas.map(function (f) { return f.codigoGrupo; }).filter(function (c, i, todos) { return c && todos.indexOf(c) === i; });
+    if (codigos.length > 1) {
+      problemas.push({ fila: base.fila, nombre: base.nombre, tipo: 'aviso', mensaje: 'Las filas de este producto tienen códigos distintos (' + codigos.join(', ') + '); se usó "' + codigos[0] + '". Pon el mismo código en todas sus filas.' });
+    }
+    var id = codigos[0] || slug(base.nombre);
     if (usados[id] && usados[id] !== 'grupo') {
       problemas.push({ fila: base.fila, nombre: base.nombre, tipo: 'aviso', mensaje: 'El código "' + id + '" ya lo usa la fila ' + usados[id] + '; este producto con tamaños quedó como "' + id + '-tamanos".' });
       id += '-tamanos';
@@ -768,7 +776,7 @@
       presentaciones.forEach(function (t) {
         var agotados = agotadosSiempre.concat(t.sinColores || []);
         var celdas = {
-          codigo: tam ? '' : p.id,
+          codigo: p.id,
           nombre: p.nombre,
           categoria: catNombre[p.categoria],
           tematicas: p.tematicas.map(function (x) { return temaNombre[x] || x; }).join(', '),

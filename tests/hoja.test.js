@@ -274,3 +274,22 @@ test('códigos de tono sin ceros a la izquierda (Google Sheets convierte 015 en 
   assert.deepEqual(opciones.map((o) => o.nombre), ['015 Rojo', '005 Blanco', '970 Dorado']);
   assert.equal(opciones[1].agotado, true);
 });
+
+test('tamaños: el código de las filas fija el enlace del producto', () => {
+  const base = { 'Nombre': 'Globo redondo', 'Categoría': 'Globos de látex', 'Descripción': 'x', 'Peso (g)': '10' };
+  const iguales = leer(hoja([
+    { ...base, 'Código': 'sempertex-redondo', 'Presentación': '5"', 'Precio': '55' },
+    { ...base, 'Código': 'sempertex-redondo', 'Presentación': '12"', 'Precio': '127' }
+  ]));
+  assert.deepEqual(iguales.problemas, []);
+  assert.equal(iguales.productos.length, 1);
+  assert.equal(iguales.productos[0].id, 'sempertex-redondo');
+
+  const distintos = leer(hoja([
+    { ...base, 'Código': 'uno', 'Presentación': '5"', 'Precio': '55' },
+    { ...base, 'Código': 'dos', 'Presentación': '12"', 'Precio': '127' }
+  ]));
+  assert.equal(distintos.productos.length, 1);
+  assert.equal(distintos.productos[0].id, 'uno');
+  assert.match(distintos.problemas[0].mensaje, /códigos distintos/);
+});
