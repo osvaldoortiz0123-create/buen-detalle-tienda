@@ -78,20 +78,64 @@
   /* ------------------------------------------------------------------
      Producto: variantes, dibujo y tarjetas
      ------------------------------------------------------------------ */
+  const grupoTamano = (p) => (p.variantes || []).find((g) => g.tipo === 'tamano');
+
+  // Una carta de muchos tonos (Sempertex) se elige a propósito: no hay tono preseleccionado.
+  const esCarta = (g) => g.tipo === 'color' && (g.opciones.length > 20 || g.opciones.some((o) => o.familia));
+  const requiereEleccion = esCarta;
+
   function seleccionInicial(p) {
     const sel = {};
-    (p.variantes || []).forEach((g) => { sel[g.nombre] = g.opciones[0].nombre; });
+    (p.variantes || []).forEach((g) => {
+      if (requiereEleccion(g)) return;
+      sel[g.nombre] = (g.opciones.find((o) => !o.agotado) || g.opciones[0]).nombre;
+    });
     return sel;
   }
 
   function opcionElegida(grupo, sel) {
-    return grupo.opciones.find((o) => o.nombre === sel[grupo.nombre]) || grupo.opciones[0];
+    const o = grupo.opciones.find((x) => x.nombre === sel[grupo.nombre]);
+    if (o) return o;
+    return requiereEleccion(grupo) ? null : grupo.opciones[0];
+  }
+
+  // El producto con el precio, mayoreo, peso y presentación del tamaño elegido.
+  // Su id incluye el tamaño para que el mayoreo se cuente por tamaño.
+  function productoEfectivo(p, sel) {
+    const g = grupoTamano(p);
+    const t = g && opcionElegida(g, sel || {});
+    if (!t) return p;
+    return Object.assign({}, p, {
+      id: `${p.id}|${t.nombre}`,
+      idBase: p.id,
+      precio: t.precio ?? p.precio,
+      mayoreo: t.precio != null ? t.mayoreo : p.mayoreo,
+      peso: t.peso ?? p.peso,
+      unidad: t.unidad || p.unidad
+    });
+  }
+
+  // Un color puede estar agotado en general o solo en el tamaño elegido.
+  function colorDisponible(p, o, sel) {
+    if (o.agotado) return false;
+    const g = grupoTamano(p);
+    const t = g && opcionElegida(g, sel || {});
+    return !(t && t.sinColores && t.sinColores.includes(o.nombre));
+  }
+
+  function descripcionFamilia(nombre) {
+    for (const carta of Object.values(window.CARTAS || {})) {
+      const f = carta.familias.find((x) => x.nombre === nombre);
+      if (f) return f.descripcion;
+    }
+    return '';
   }
 
   function dibujoDe(p, sel) {
     const d = Object.assign({ color: '#e5177e' }, p.dibujo);
     (p.variantes || []).forEach((g) => {
       const o = opcionElegida(g, sel || {});
+      if (!o) return;
       if (o.color) d.color = o.color;
       if (o.dibujo) Object.assign(d, o.dibujo);
     });
@@ -102,7 +146,7 @@
     let foto = p.imagen;
     (p.variantes || []).forEach((g) => {
       const o = opcionElegida(g, sel || {});
-      if (o.imagen) foto = o.imagen;
+      if (o && o.imagen) foto = o.imagen;
     });
     if (foto) return `<img src="${esc(foto)}" alt="${esc(p.nombre)}" loading="lazy">`;
     return window.Dibujos.svg(dibujoDe(p, sel), p.nombre);
@@ -117,6 +161,8 @@
     return p.variantes.map((g) => {
       const n = g.opciones.length;
       const nombre = g.nombre.toLowerCase();
+      if (g.tipo === 'tamano') return `${n} ${n === 1 ? 'tamaño' : 'tamaños'}`;
+      if (esCarta(g)) return `${n} tonos`;
       if (nombre === 'color') return `${n} colores`;
       if (nombre === 'número') return '0 al 9';
       if (nombre === 'letra') return 'A a la Z';
@@ -127,9 +173,12 @@
   }
 
   function tarjeta(p) {
-    const may = p.mayoreo
-      ? `<p class="tarjeta-mayoreo">${precio(p.mayoreo.precio)} c/u desde ${p.mayoreo.min} ${unidadesPlural(p.unidad)}</p>`
-      : '';
+    const tam = grupoTamano(p);
+    const precios = tam ? tam.opciones.map((o) => o.precio ?? p.precio) : [p.precio];
+    const desde = new Set(precios).size > 1;
+    let may = '';
+    if (tam && tam.opciones.some((o) => o.mayoreo)) may = '<p class="tarjeta-mayoreo">Precio de mayoreo en cada tamaño</p>';
+    else if (p.mayoreo) may = `<p class="tarjeta-mayoreo">${precio(p.mayoreo.precio)} c/u desde ${p.mayoreo.min} ${unidadesPlural(p.unidad)}</p>`;
     const vars = resumenVariantes(p);
     const agotado = p.estado === 'agotado';
     const insignia = agotado ? '<span class="insignia insignia-agotado">Agotado</span>' : p.nuevo ? '<span class="insignia">Nuevo</span>' : '';
@@ -137,8 +186,8 @@
       <div class="tarjeta-img">${imagenDe(p)}${insignia}</div>
       <div class="tarjeta-info">
         <h3 class="tarjeta-nombre">${esc(p.nombre)}</h3>
-        <p class="tarjeta-precio">${precio(p.precio)}</p>
-        <p class="tarjeta-unidad">por ${esc(p.unidad)}</p>
+        <p class="tarjeta-precio">${desde ? '<span class="tarjeta-desde">Desde</span> ' : ''}${precio(Math.min(...precios))}</p>
+        <p class="tarjeta-unidad">${tam ? esc(tam.opciones.map((o) => o.nombre).join(' · ')) : `por ${esc(p.unidad)}`}</p>
         ${may}
         ${vars ? `<p class="tarjeta-vars">${esc(vars)}</p>` : ''}
       </div>
@@ -180,18 +229,34 @@
   function limpiarCarrito() {
     if (fuente.tipo === 'error' || fuente.tipo === 'cargando') return;
     const antes = carrito.length;
-    carrito = carrito.filter((l) => porId[l.id] && porId[l.id].estado !== 'agotado');
+    carrito = carrito.filter(lineaDisponible);
     const quitados = antes - carrito.length;
     guardarCarrito();
     if (quitados) aviso(`Quitamos ${quitados} ${quitados === 1 ? 'producto' : 'productos'} de tu carrito porque ya no ${quitados === 1 ? 'está disponible' : 'están disponibles'}.`);
   }
 
-  function piezasEnCarrito(id) {
-    return carrito.filter((l) => l.id === id).reduce((s, l) => s + l.cantidad, 0);
+  // Piezas del mismo producto (y del mismo tamaño) que ya están en el carrito.
+  function piezasEnCarrito(p, sel) {
+    const id = productoEfectivo(p, sel).id;
+    return carrito.filter((l) => porId[l.id] && productoEfectivo(porId[l.id], l.opciones).id === id)
+      .reduce((s, l) => s + l.cantidad, 0);
   }
 
   function resumenActual() {
-    return resumenCarrito(carrito.filter((l) => porId[l.id]).map((l) => ({ producto: porId[l.id], cantidad: l.cantidad, opciones: l.opciones })));
+    return resumenCarrito(carrito.filter((l) => porId[l.id]).map((l) => ({ producto: productoEfectivo(porId[l.id], l.opciones), cantidad: l.cantidad, opciones: l.opciones })));
+  }
+
+  // ¿Se puede seguir vendiendo esta línea? (producto, tamaño y tono disponibles)
+  function lineaDisponible(l) {
+    const p = porId[l.id];
+    if (!p || p.estado === 'agotado') return false;
+    return (p.variantes || []).every((g) => {
+      const elegido = l.opciones && l.opciones[g.nombre];
+      if (!elegido) return !requiereEleccion(g);
+      const o = g.opciones.find((x) => x.nombre === elegido);
+      if (!o) return true; // la opción cambió de nombre en la hoja: se respeta lo que pidió el cliente
+      return g.tipo === 'color' ? colorDisponible(p, o, l.opciones) : !o.agotado;
+    });
   }
 
   function destinoElegido() {
@@ -227,7 +292,7 @@
 
   function construirIndice() {
     indice = Object.fromEntries(PRODS.map((p) => {
-      const variantes = (p.variantes || []).flatMap((g) => g.opciones.map((o) => o.nombre)).join(' ');
+      const variantes = [...new Set((p.variantes || []).flatMap((g) => g.opciones.flatMap((o) => [o.nombre, o.familia, o.ingles, o.carta])).filter(Boolean))].join(' ');
       const temas = p.tematicas.map((t) => temaPorId[t] ? temaPorId[t].nombre : '').join(' ');
       return [p.id, {
         nombre: normalizar(p.nombre),
@@ -303,12 +368,9 @@
         </div>
       </div>
       <nav class="navegacion" aria-label="Categorías">
-        <div class="contenedor navegacion-fila">
-          ${CATS.map((c) => `<a href="#/categoria/${c.id}" data-nav="categoria/${c.id}">${esc(c.nombre)}</a>`).join('')}
-          <a href="#/tematicas" data-nav="tematicas">Temáticas</a>
-          <a href="#/envios" data-nav="envios">Envíos y cómo comprar</a>
-        </div>
+        <div class="contenedor navegacion-fila" id="navegacion-fila"></div>
       </nav>`;
+    pintarNavegacion();
     activarBuscador();
     pintarContador();
   }
@@ -351,6 +413,24 @@
     const flotante = document.getElementById('wa-flotante');
     flotante.href = waEnlace('¡Hola, Buen Detalle! Tengo una pregunta.');
     flotante.innerHTML = `${I.whatsapp}<span class="oculto">Escríbenos por WhatsApp</span>`;
+  }
+
+  // Productos con carta de colores (Sempertex) tienen su propio apartado en el menú y la portada.
+  const productosConCarta = () => PRODS.filter((p) => (p.variantes || []).some(esCarta));
+  function nombreApartado(p) {
+    const g = p.variantes.find(esCarta);
+    const carta = g.opciones.find((o) => o.carta);
+    return carta ? `Globos ${carta.carta}` : p.nombre;
+  }
+
+  function pintarNavegacion() {
+    const fila = document.getElementById('navegacion-fila');
+    if (!fila) return;
+    fila.innerHTML = `
+      ${CATS.map((c) => `<a href="#/categoria/${c.id}" data-nav="categoria/${c.id}">${esc(c.nombre)}</a>`).join('')}
+      ${productosConCarta().map((p) => `<a href="#/producto/${p.id}" data-nav="producto/${p.id}">${esc(nombreApartado(p))}</a>`).join('')}
+      <a href="#/tematicas" data-nav="tematicas">Temáticas</a>
+      <a href="#/envios" data-nav="envios">Envíos y cómo comprar</a>`;
   }
 
   function activarBuscador() {
@@ -472,6 +552,8 @@
         </div>
       </section>
 
+      ${productosConCarta().filter((p) => p.estado !== 'agotado').map(bandaCarta).join('')}
+
       <section class="seccion contenedor">
         <div class="seccion-cabeza"><h2>Compra por temática</h2><a class="ver-todo" href="#/tematicas">Ver todas</a></div>
         <div class="chips">${temasConProductos().map(chipTema).join('')}</div>
@@ -505,6 +587,26 @@
         </div>
       </section>`;
     return T.nombre;
+  }
+
+  // Banda de portada para un producto con carta de colores.
+  function bandaCarta(p) {
+    const g = p.variantes.find(esCarta);
+    const tam = grupoTamano(p);
+    const familias = [...new Set(g.opciones.map((o) => o.familia).filter(Boolean))];
+    const paso = Math.max(1, g.opciones.length / 28);
+    const muestra = Array.from({ length: Math.min(28, g.opciones.length) }, (_, i) => g.opciones[Math.floor(i * paso)]);
+    return `<section class="seccion contenedor">
+      <a class="banda-carta" href="#/producto/${p.id}">
+        <div class="banda-carta-texto">
+          <p class="sobretitulo">Carta de colores</p>
+          <h2>${esc(nombreApartado(p))}: ${g.opciones.length} tonos${tam ? ` en ${esc(tam.opciones.map((o) => o.nombre).join(', ').replace(/, ([^,]*)$/, ' y $1'))}` : ''}</h2>
+          <p>Elige el tono exacto y el tamaño.${familias.length ? ` Familias ${esc(familias.join(', ').replace(/, ([^,]*)$/, ' y $1'))}.` : ''}</p>
+          <span class="boton boton-primario">Elegir tono</span>
+        </div>
+        <div class="banda-carta-tonos" aria-hidden="true">${muestra.map((o) => `<span class="tono-globo acabado-${esc(o.acabado || 'mate')}" style="--c:${o.color}"></span>`).join('')}</div>
+      </a>
+    </section>`;
   }
 
   function chipTema(t) {
@@ -683,35 +785,89 @@
     let cantidad = 1;
 
     const agotado = p.estado === 'agotado';
+    const tam = grupoTamano(p);
+    const conTonos = (p.variantes || []).some(requiereEleccion);
     const relacionados = disponibles(PRODS)
       .filter((x) => x.id !== p.id && (x.categoria === p.categoria || x.tematicas.some((t) => p.tematicas.includes(t))))
       .map((x) => ({ x, n: x.tematicas.filter((t) => p.tematicas.includes(t)).length + (x.categoria === p.categoria ? 1 : 0) }))
       .sort((a, b) => b.n - a.n).slice(0, 6).map((r) => r.x);
+    const efectivo = () => productoEfectivo(p, sel);
+    const cm = (o) => (o.dibujo && o.dibujo.tamano ? `${Math.round(o.dibujo.tamano * 2.54)} cm` : '');
+
+    const tamanosHtml = (g, gi) => `<div class="var-grupo">
+      <p class="var-titulo" id="var-t-${gi}">${esc(g.nombre)}: <strong data-actual="${gi}">${esc(sel[g.nombre] || '')}</strong></p>
+      <div class="tamanos" role="group" aria-labelledby="var-t-${gi}">${g.opciones.map((o) => `
+        <button type="button" class="tamano" data-grupo="${gi}" data-op="${esc(o.nombre)}" aria-pressed="false"${o.agotado ? ' disabled' : ''}>
+          <span class="tamano-medida">${esc(o.nombre)}</span>
+          ${cm(o) ? `<span class="tamano-cm">${cm(o)}</span>` : ''}
+          <span class="tamano-precio">${o.agotado ? 'Agotado' : precio(o.precio ?? p.precio)}</span>
+          <span class="tamano-unidad">${esc(o.unidad || p.unidad)}</span>
+        </button>`).join('')}
+      </div>
+    </div>`;
+
+    const tonoBoton = (o, gi) => {
+      const nombre = o.codigo ? o.nombre.slice(o.codigo.length).trim() : o.nombre;
+      return `<button type="button" class="tono" data-grupo="${gi}" data-op="${esc(o.nombre)}" aria-pressed="false" title="${esc(o.nombre)}${o.ingles ? ` (${esc(o.ingles)})` : ''}" style="--c:${o.color}">
+        <span class="tono-globo acabado-${esc(o.acabado || 'mate')}" aria-hidden="true"></span>
+        ${o.codigo ? `<span class="tono-cod">${esc(o.codigo)}</span>` : ''}
+        <span class="tono-nom">${esc(nombre)}</span>
+      </button>`;
+    };
+
+    const tonosHtml = (g, gi) => {
+      const familias = [];
+      g.opciones.forEach((o) => {
+        const nombre = o.familia || 'Colores';
+        let f = familias.find((x) => x.nombre === nombre);
+        if (!f) familias.push(f = { nombre, opciones: [] });
+        f.opciones.push(o);
+      });
+      const varias = familias.length > 1;
+      return `<div class="var-grupo tonos" id="pp-tonos" data-tonos="${gi}">
+        <p class="var-titulo" id="var-t-${gi}">Tono: <strong data-actual="${gi}">elige uno de la carta</strong></p>
+        <p class="tonos-aviso" id="pp-tonos-aviso" role="alert" hidden></p>
+        ${varias ? `<div class="tonos-filtro" role="group" aria-label="Familias de color">
+          <button type="button" class="filtro-op activo" data-familia="" aria-pressed="true">Todos <span>${g.opciones.length}</span></button>
+          ${familias.map((f) => `<button type="button" class="filtro-op" data-familia="${esc(f.nombre)}" aria-pressed="false">${esc(f.nombre)} <span>${f.opciones.length}</span></button>`).join('')}
+        </div>` : ''}
+        ${familias.map((f) => `<section class="tonos-familia" data-familia="${esc(f.nombre)}">
+          ${varias ? `<h3>${esc(f.nombre)}${descripcionFamilia(f.nombre) ? ` <small>${esc(descripcionFamilia(f.nombre))}</small>` : ''}</h3>` : ''}
+          <div class="tonos-rejilla" role="group" aria-label="${esc(f.nombre)}">${f.opciones.map((o) => tonoBoton(o, gi)).join('')}</div>
+        </section>`).join('')}
+        <p class="tonos-nota">Los tonos en pantalla son aproximados. Si necesitas el tono exacto, pídenos una foto por WhatsApp.</p>
+      </div>`;
+    };
 
     const grupoHtml = (g, gi) => {
+      if (g.tipo === 'tamano') return tamanosHtml(g, gi);
+      if (requiereEleccion(g)) return tonosHtml(g, gi);
       const actual = sel[g.nombre];
       let controles;
       if (g.opciones.length > 14) {
-        controles = `<select id="var-${gi}" data-grupo="${gi}" class="var-select">${g.opciones.map((o) => `<option${o.nombre === actual ? ' selected' : ''}>${esc(o.nombre)}</option>`).join('')}</select>`;
+        controles = `<select id="var-${gi}" data-grupo="${gi}" class="var-select">${g.opciones.map((o) => `<option${o.nombre === actual ? ' selected' : ''}${o.agotado ? ' disabled' : ''}>${esc(o.nombre)}</option>`).join('')}</select>`;
       } else {
         controles = `<div class="var-opciones${g.tipo === 'color' ? ' var-colores' : ''}" role="group" aria-labelledby="var-t-${gi}">${g.opciones.map((o) => {
-          const activo = o.nombre === actual;
           if (g.tipo === 'color') {
-            return `<button type="button" class="var-color${activo ? ' activo' : ''}" data-grupo="${gi}" data-op="${esc(o.nombre)}" aria-pressed="${activo}" title="${esc(o.nombre)}" style="--muestra:${o.color}"><span class="oculto">${esc(o.nombre)}</span></button>`;
+            return `<button type="button" class="var-color" data-grupo="${gi}" data-op="${esc(o.nombre)}" aria-pressed="false" title="${esc(o.nombre)}" style="--muestra:${o.color}"><span class="oculto">${esc(o.nombre)}</span></button>`;
           }
-          return `<button type="button" class="var-chip${activo ? ' activo' : ''}" data-grupo="${gi}" data-op="${esc(o.nombre)}" aria-pressed="${activo}">${esc(o.nombre)}</button>`;
+          return `<button type="button" class="var-chip" data-grupo="${gi}" data-op="${esc(o.nombre)}" aria-pressed="false"${o.agotado ? ' disabled' : ''}>${esc(o.nombre)}</button>`;
         }).join('')}</div>`;
       }
-      return `<div class="var-grupo"><p class="var-titulo" id="var-t-${gi}">${esc(g.nombre)}: <strong data-actual="${gi}">${esc(actual)}</strong></p>${controles}</div>`;
+      return `<div class="var-grupo"><p class="var-titulo" id="var-t-${gi}">${esc(g.nombre)}: <strong data-actual="${gi}">${esc(actual || '')}</strong></p>${controles}</div>`;
     };
 
+    const fichaVenta = tam
+      ? `<div><dt>Presentaciones</dt><dd>${tam.opciones.map((o) => `${esc(o.nombre)}${cm(o) ? ` (${cm(o)})` : ''}: ${esc(o.unidad || p.unidad)}, ${pesoTexto(o.peso ?? p.peso)}`).join('<br>')}</dd></div>`
+      : `<div><dt>Se vende por</dt><dd>${esc(p.unidad)}</dd></div><div><dt>Peso para envío</dt><dd>${pesoTexto(p.peso)}</dd></div>`;
+
     vista.innerHTML = `
-      <div class="contenedor pagina">
+      <div class="contenedor pagina${conTonos && !agotado ? ' pagina-con-barra' : ''}">
         ${migas([['Inicio', '#/'], [c.nombre, `#/categoria/${c.id}`], [p.nombre]])}
         <article class="producto">
           <div class="producto-galeria">
             <div class="producto-img" id="pp-img">${imagenDe(p, sel)}</div>
-            ${p.imagen ? '' : '<p class="producto-nota-img">Imagen ilustrativa</p>'}
+            <p class="producto-nota-img" id="pp-nota-img">${p.imagen ? '' : 'Imagen ilustrativa'}</p>
           </div>
           <div class="producto-info">
             <p class="producto-cat"><a href="#/categoria/${c.id}">${esc(c.nombre)}</a>${agotado ? '<span class="insignia insignia-linea insignia-agotado">Agotado</span>' : p.nuevo ? '<span class="insignia insignia-linea">Nuevo</span>' : ''}</p>
@@ -726,14 +882,14 @@
                 <input id="pp-cantidad" type="number" inputmode="numeric" min="1" max="999" value="1" aria-label="Cantidad">
                 <button type="button" data-paso="1" aria-label="Agregar uno">${I.mas}</button>
               </div>
-              <span class="cantidad-unidad">${esc(p.unidad)}</span>
+              <span class="cantidad-unidad" id="pp-unidad"></span>
             </div>
             <div class="producto-acciones">
               <button type="button" class="boton boton-primario boton-grande" id="pp-agregar">${I.carrito}Agregar al carrito</button>
               <button type="button" class="boton boton-secundario boton-grande" id="pp-comprar">Comprar ahora</button>
             </div>`}
             <a class="enlace-wa" id="pp-preguntar" target="_blank" rel="noopener" href="#">${I.whatsapp}${agotado ? 'Preguntar cuándo vuelve a llegar' : 'Preguntar por este producto'}</a>
-            <div class="producto-envio">${I.camion}<p><strong>Envío calculado por peso y distancia.</strong> Pesa ${pesoTexto(p.peso)} por ${esc(p.unidad)}. El costo final lo ves en el carrito al elegir tu ciudad.</p></div>
+            <div class="producto-envio">${I.camion}<p><strong>Envío calculado por peso y distancia.</strong> <span id="pp-peso"></span> El costo final lo ves en el carrito al elegir tu ciudad.</p></div>
           </div>
         </article>
 
@@ -747,45 +903,94 @@
             <h2>Características</h2>
             <dl class="ficha">
               ${(p.detalles || []).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}
-              <div><dt>Se vende por</dt><dd>${esc(p.unidad)}</dd></div>
-              <div><dt>Peso para envío</dt><dd>${pesoTexto(p.peso)}</dd></div>
+              ${fichaVenta}
             </dl>
           </div>
         </section>
 
         ${relacionados.length ? `<section class="seccion"><div class="seccion-cabeza"><h2>También te puede interesar</h2></div>${rejilla(relacionados)}</section>` : ''}
-      </div>`;
+      </div>
+      ${conTonos && !agotado ? `<div class="barra-compra" id="barra-compra">
+        <span class="tono-globo" id="barra-globo" aria-hidden="true"></span>
+        <span class="barra-compra-texto"><strong id="barra-tono">Elige un tono</strong><span id="barra-detalle"></span></span>
+        <button type="button" class="boton boton-primario" id="barra-agregar">${I.carrito}Agregar</button>
+      </div>` : ''}`;
 
     const pintarPrecio = () => {
-      const enCarrito = piezasEnCarrito(p.id);
+      const e = efectivo();
+      const enCarrito = piezasEnCarrito(p, sel);
       const total = cantidad + enCarrito;
-      const aplica = p.mayoreo && total >= p.mayoreo.min;
-      const unitario = aplica ? p.mayoreo.precio : p.precio;
+      const aplica = e.mayoreo && total >= e.mayoreo.min;
+      const unitario = aplica ? e.mayoreo.precio : e.precio;
       let mayoreo = '';
-      if (p.mayoreo && !agotado) {
-        const faltan = p.mayoreo.min - total;
+      if (e.mayoreo && !agotado) {
+        const faltan = e.mayoreo.min - total;
         mayoreo = `<p class="mayoreo-linea${aplica ? ' activo' : ''}">${I.etiqueta}<span>${aplica
-          ? `<strong>Precio de mayoreo aplicado:</strong> ${precio(p.mayoreo.precio)} c/u`
-          : `<strong>Mayoreo:</strong> ${precio(p.mayoreo.precio)} c/u desde ${p.mayoreo.min} ${unidadesPlural(p.unidad)}. Te ${faltan === 1 ? 'falta' : 'faltan'} ${faltan}.`}
-          <small>Cuentan todas las variantes de este producto${enCarrito ? `, incluidas las ${enCarrito} que ya tienes en el carrito` : ''}.</small></span></p>`;
+          ? `<strong>Precio de mayoreo aplicado:</strong> ${precio(e.mayoreo.precio)} c/u`
+          : `<strong>Mayoreo:</strong> ${precio(e.mayoreo.precio)} c/u desde ${e.mayoreo.min} ${unidadesPlural(e.unidad)}. Te ${faltan === 1 ? 'falta' : 'faltan'} ${faltan}.`}
+          <small>${tam ? `Cuentan todos los tonos de ${sel[tam.nombre]}` : 'Cuentan todas las variantes de este producto'}${enCarrito ? `, incluidas las ${enCarrito} que ya tienes en el carrito` : ''}.</small></span></p>`;
       }
       document.getElementById('pp-precio').innerHTML = `
-        <p class="precio-grande">${precio(p.precio)} <span>por ${esc(p.unidad)}</span></p>
+        <p class="precio-grande">${precio(e.precio)} <span>por ${esc(e.unidad)}</span></p>
         ${mayoreo}
         ${agotado ? '' : `<p class="precio-subtotal">${cantidad} × ${dinero(unitario)} = <strong>${dinero(unitario * cantidad)}</strong></p>`}`;
+      const unidad = document.getElementById('pp-unidad');
+      if (unidad) unidad.textContent = e.unidad;
+      document.getElementById('pp-peso').textContent = `Pesa ${pesoTexto(e.peso)} por ${e.unidad}.`;
+      const detalle = document.getElementById('barra-detalle');
+      if (detalle) detalle.textContent = `${tam ? `${sel[tam.nombre]} · ` : ''}${cantidad} × ${dinero(unitario)}`;
+    };
+
+    const avisoTonos = (texto) => {
+      const el = document.getElementById('pp-tonos-aviso');
+      if (!el) return;
+      el.textContent = texto || '';
+      el.hidden = !texto;
+      document.getElementById('pp-tonos').classList.toggle('tonos-falta', !!texto);
     };
 
     const actualizar = () => {
+      // Un tono que no hay en el tamaño elegido deja de estar seleccionado.
+      (p.variantes || []).forEach((g) => {
+        if (g.tipo !== 'color' || !sel[g.nombre]) return;
+        const o = g.opciones.find((x) => x.nombre === sel[g.nombre]);
+        if (o && !colorDisponible(p, o, sel)) {
+          avisoTonos(`El tono ${o.nombre} no está disponible en ${tam ? sel[tam.nombre] : 'este momento'}. Elige otro.`);
+          delete sel[g.nombre];
+        }
+      });
+
       document.getElementById('pp-img').innerHTML = imagenDe(p, sel);
       (p.variantes || []).forEach((g, gi) => {
         const et = vista.querySelector(`[data-actual="${gi}"]`);
-        if (et) et.textContent = sel[g.nombre];
+        if (et) et.textContent = sel[g.nombre] || (requiereEleccion(g) ? 'elige uno de la carta' : '');
         vista.querySelectorAll(`button[data-grupo="${gi}"]`).forEach((b) => {
           const on = b.dataset.op === sel[g.nombre];
           b.classList.toggle('activo', on);
           b.setAttribute('aria-pressed', String(on));
+          if (g.tipo === 'color') {
+            const o = g.opciones.find((x) => x.nombre === b.dataset.op);
+            const libre = colorDisponible(p, o, sel);
+            b.disabled = !libre;
+            b.title = `${o.nombre}${o.ingles ? ` (${o.ingles})` : ''}${libre ? '' : o.agotado ? ' · agotado' : ` · no disponible en ${sel[tam.nombre]}`}`;
+          }
         });
       });
+
+      const tono = (p.variantes || []).filter((g) => g.tipo === 'color').map((g) => opcionElegida(g, sel)).find(Boolean);
+      const nota = document.getElementById('pp-nota-img');
+      if (!p.imagen) {
+        nota.textContent = tono
+          ? `Vista aproximada: ${tono.nombre}${tono.familia ? ` · ${tono.familia}` : ''}${tam ? ` · ${sel[tam.nombre]}` : ''}`
+          : 'Imagen ilustrativa';
+      }
+      const globo = document.getElementById('barra-globo');
+      if (globo) {
+        globo.style.setProperty('--c', tono ? tono.color : 'transparent');
+        globo.className = `tono-globo acabado-${tono ? tono.acabado || 'mate' : 'vacio'}`;
+        document.getElementById('barra-tono').textContent = tono ? tono.nombre : 'Elige un tono';
+      }
+
       const opc = textoOpciones(sel);
       const detalle = (agotado ? `¡Hola! ¿Cuándo vuelve a llegar ${p.nombre}${opc ? ` (${opc})` : ''}?` : `¡Hola! Me interesa: ${p.nombre}${opc ? ` (${opc})` : ''}.`) + (!enIframe && /^https?:/.test(location.protocol) ? ` ${location.href}` : '');
       document.getElementById('pp-preguntar').href = waEnlace(detalle);
@@ -793,13 +998,29 @@
     };
 
     vista.querySelectorAll('button[data-grupo]').forEach((b) => b.addEventListener('click', () => {
-      sel[p.variantes[+b.dataset.grupo].nombre] = b.dataset.op;
+      const g = p.variantes[+b.dataset.grupo];
+      sel[g.nombre] = b.dataset.op;
+      if (g.tipo === 'color') avisoTonos('');
       actualizar();
     }));
     vista.querySelectorAll('select[data-grupo]').forEach((s) => s.addEventListener('change', () => {
       sel[p.variantes[+s.dataset.grupo].nombre] = s.value;
       actualizar();
     }));
+
+    // Filtro por familia de la carta de colores.
+    vista.querySelectorAll('[data-familia]').forEach((b) => {
+      if (b.tagName !== 'BUTTON') return;
+      b.addEventListener('click', () => {
+        const familia = b.dataset.familia;
+        vista.querySelectorAll('.tonos-filtro button').forEach((x) => {
+          const on = x === b;
+          x.classList.toggle('activo', on);
+          x.setAttribute('aria-pressed', String(on));
+        });
+        vista.querySelectorAll('.tonos-familia').forEach((sec) => { sec.hidden = !!familia && sec.dataset.familia !== familia; });
+      });
+    });
 
     const inputCant = document.getElementById('pp-cantidad');
     if (agotado) {
@@ -818,13 +1039,27 @@
       if (n >= 1 && n <= 999) { cantidad = n; pintarPrecio(); }
     });
 
-    document.getElementById('pp-agregar').addEventListener('click', () => {
+    // Antes de agregar, el cliente debe haber elegido el tono de la carta.
+    const listoParaAgregar = () => {
+      const falta = (p.variantes || []).find((g) => requiereEleccion(g) && !sel[g.nombre]);
+      if (!falta) return true;
+      avisoTonos('Elige un tono de la carta para agregarlo al carrito.');
+      const bloque = document.getElementById('pp-tonos');
+      bloque.scrollIntoView({ behavior: sinMovimiento ? 'auto' : 'smooth', block: 'start' });
+      return false;
+    };
+    const agregar = () => {
+      if (!listoParaAgregar()) return;
       agregarAlCarrito(p.id, sel, cantidad);
       const opc = textoOpciones(sel);
       aviso(`Agregaste ${cantidad} × ${p.nombre}${opc ? ` (${opc})` : ''}`);
       fijarCantidad(1);
-    });
+    };
+    document.getElementById('pp-agregar').addEventListener('click', agregar);
+    const barra = document.getElementById('barra-agregar');
+    if (barra) barra.addEventListener('click', agregar);
     document.getElementById('pp-comprar').addEventListener('click', () => {
+      if (!listoParaAgregar()) return;
       agregarAlCarrito(p.id, sel, cantidad);
       location.hash = '#/carrito';
     });
@@ -990,10 +1225,11 @@
       <ul class="lineas">${r.lineas.map((l, i) => {
         const p = l.producto;
         const opc = textoOpciones(l.opciones);
+        const idProducto = p.idBase || p.id;
         return `<li class="linea">
-          <a class="linea-img" href="#/producto/${p.id}" tabindex="-1" aria-hidden="true">${imagenDe(p, l.opciones)}</a>
+          <a class="linea-img" href="#/producto/${idProducto}" tabindex="-1" aria-hidden="true">${imagenDe(p, l.opciones)}</a>
           <div class="linea-info">
-            <a class="linea-nombre" href="#/producto/${p.id}">${esc(p.nombre)}</a>
+            <a class="linea-nombre" href="#/producto/${idProducto}">${esc(p.nombre)}</a>
             ${opc ? `<p class="linea-opc">${esc(opc)}</p>` : ''}
             <p class="linea-unit">${dinero(l.precioUnitario)} c/u${l.esMayoreo ? ' <span class="pastilla">Mayoreo</span>' : ''}</p>
             ${l.faltanParaMayoreo ? `<p class="linea-pista">Agrega ${l.faltanParaMayoreo} más para precio de mayoreo de ${precio(p.mayoreo.precio)} c/u</p>` : ''}
@@ -1265,6 +1501,7 @@
     categorias: CATS,
     tematicas: window.TEMATICAS,
     colores: window.COLORES,
+    cartas: window.CARTAS,
     ejemplos: Object.fromEntries(window.PRODUCTOS.map((p) => [p.id, p]))
   };
   let arrancado = false;
@@ -1276,6 +1513,7 @@
     porId = Object.fromEntries(PRODS.map((p) => [p.id, p]));
     temaPorId = Object.fromEntries(TEMAS.map((t) => [t.id, t]));
     construirIndice();
+    pintarNavegacion();
   }
 
   const leerHoja = (csv) => window.Hoja.productosDesdeFilas(window.Hoja.leerCSV(csv), ctxHoja);

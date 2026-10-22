@@ -110,6 +110,9 @@ window.COLORES = {
     ]
   };
 
+  // Los 85 tonos de la carta Sempertex (js/cartas.js).
+  var SEMPERTEX = window.Hoja.tonosDeCarta(window.CARTAS, 'sempertex');
+
   var FOIL = [
     ['Medida', '18 in (45 cm)'], ['Material', 'Foil metalizado'],
     ['Inflado', 'Helio o aire, válvula autosellante'], ['Duración con helio', '5 a 7 días aprox.']
@@ -285,6 +288,26 @@ window.COLORES = {
     },
 
     /* ---------------- GLOBOS DE LÁTEX ---------------- */
+    {
+      id: 'globo-sempertex-redondo', nombre: 'Globo Sempertex redondo', categoria: 'globos-latex',
+      tematicas: ['cumpleanos', 'infantil', 'baby-shower', 'revelacion', 'xv-anos', 'bodas', 'graduacion', 'navidad'],
+      precio: 135, mayoreo: { min: 6, precio: 120 }, unidad: 'bolsa con 100 piezas', peso: 120,
+      descripcion: 'Globo redondo de látex Sempertex con colores firmes y acabado parejo. Elige el tono en la carta de colores y el tamaño: 5" para arcos orgánicos y rellenos, 12" para decoración en general y 18" para dar volumen.',
+      detalles: [['Marca', 'Sempertex'], ['Forma', 'Redondo'], ['Material', 'Látex natural'], ['Tamaños', '5" (13 cm), 12" (30 cm) y 18" (46 cm)'], ['Tonos', '85, en 8 familias: Fashion, Pastel Mate, Neón, Pastel Dusk, Satín, Silk, Metálico y Reflex']],
+      variantes: [
+        {
+          nombre: 'Tamaño', tipo: 'tamano',
+          opciones: [
+            { nombre: '5"', precio: 135, mayoreo: { min: 6, precio: 120 }, unidad: 'bolsa con 100 piezas', peso: 120, dibujo: { tamano: 5 } },
+            { nombre: '12"', precio: 175, mayoreo: { min: 6, precio: 155 }, unidad: 'bolsa con 50 piezas', peso: 170, dibujo: { tamano: 12 } },
+            { nombre: '18"', precio: 265, mayoreo: { min: 6, precio: 240 }, unidad: 'bolsa con 25 piezas', peso: 240, dibujo: { tamano: 18 } }
+          ]
+        },
+        { nombre: 'Color', tipo: 'color', opciones: SEMPERTEX }
+      ],
+      dibujo: Object.assign(window.Hoja.dibujoDeCarta(SEMPERTEX), { tamanos: [5, 12, 18] }),
+      etiquetas: 'sempertex latex redondo carta de colores tonos r5 r12 r18 arco', destacado: true, nuevo: true
+    },
     {
       id: 'globo-latex-12-estandar-50', nombre: 'Globo de látex 12" estándar, bolsa 50 pzas', categoria: 'globos-latex',
       tematicas: ['cumpleanos', 'infantil', 'baby-shower', 'revelacion', 'fiestas-patrias', 'graduacion'],

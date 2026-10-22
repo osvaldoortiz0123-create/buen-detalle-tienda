@@ -7,8 +7,9 @@ const { chromium } = require('playwright');
 const { servidor, opcionesNavegador, RAIZ } = require('./servidor');
 
 globalThis.window = globalThis;
-require(path.join(RAIZ, 'js', 'productos.js'));
+require(path.join(RAIZ, 'js', 'cartas.js'));
 const H = require(path.join(RAIZ, 'js', 'hoja.js'));
+require(path.join(RAIZ, 'js', 'productos.js'));
 
 const URL_HOJA = 'https://docs.google.com/spreadsheets/d/e/2PACX-prueba/pub?gid=0&single=true&output=csv';
 const URL_EDITAR = 'https://docs.google.com/spreadsheets/d/1prueba/edit';
@@ -16,13 +17,16 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 
 // Hoja de prueba: la plantilla de ejemplo con algunos cambios.
 function hojaDePrueba({ precioEstrella = 30 } = {}) {
-  const ctx = { categorias: CATEGORIAS, tematicas: TEMATICAS, colores: COLORES };
+  const ctx = { categorias: CATEGORIAS, tematicas: TEMATICAS, colores: COLORES, cartas: CARTAS };
   const filas = H.filasDesdeProductos(PRODUCTOS, ctx);
   const col = Object.fromEntries(filas[0].map((t, i) => [t, i]));
   const fila = (id) => filas.find((f) => f[col['Código']] === id);
   fila('globo-foil-estrella-18')[col['Precio']] = precioEstrella;
   fila('globo-foil-corazon-18')[col['Estado']] = 'Agotado';
   fila('globo-foil-pino-navidad-18')[col['Estado']] = 'Oculto';
+  const sempertex = (medida) => filas.find((f) => f[col['Nombre']] === 'Globo Sempertex redondo' && f[col['Presentación']] === medida);
+  sempertex('5"')[col['Estado']] = 'Agotado';
+  sempertex('18"')[col['Colores agotados']] = '015';
   const nueva = filas[0].map(() => '');
   Object.assign(nueva, {
     [col['Nombre']]: 'Globo foil "Feliz Día Mamá" 18"', [col['Categoría']]: 'Globos de foil',
@@ -127,6 +131,19 @@ async function paso(nombre, fn) {
     await page.waitForTimeout(150);
     const nombres = await page.$$eval('.tarjeta-nombre', (els) => els.map((e) => e.textContent));
     assert.ok(!nombres.some((n) => /pino/i.test(n)), nombres.join(' | '));
+  });
+
+  await paso('Sempertex desde la hoja: tamaño agotado y tono agotado solo en 18"', async () => {
+    await ir('#/producto/globo-sempertex-redondo');
+    await page.waitForSelector('.tono');
+    assert.ok(await page.isDisabled('button.tamano[data-op="5\\""]'), '5" agotado');
+    assert.equal(await page.getAttribute('button.tamano[data-op="12\\""]', 'aria-pressed'), 'true', 'empieza en 12"');
+    assert.ok(await page.isEnabled('button.tono[data-op="015 Rojo"]'));
+    await page.click('button.tono[data-op="015 Rojo"]');
+    await page.click('button.tamano[data-op="18\\""]');
+    assert.ok(await page.isDisabled('button.tono[data-op="015 Rojo"]'), '015 agotado en 18"');
+    assert.match(await page.textContent('#pp-tonos-aviso'), /015 Rojo no está disponible en 18"/);
+    assert.match(await page.textContent('#pp-tonos [data-actual]'), /elige uno/);
   });
 
   await paso('el carrito guardado pierde lo agotado y avisa', async () => {

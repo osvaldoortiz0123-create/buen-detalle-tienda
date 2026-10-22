@@ -13,7 +13,8 @@
     ['unidad', 'Se vende por'], ['peso', 'Peso (g)'], ['descripcion', 'Descripción'],
     ['detalles', 'Características'], ['colores', 'Colores'], ['opcionNombre', 'Otra opción'],
     ['opcionValores', 'Valores de la opción'], ['foto', 'Foto'], ['fotosPorOpcion', 'Fotos por opción'],
-    ['destacado', 'Destacado'], ['nuevo', 'Nuevo'], ['estado', 'Estado'], ['etiquetas', 'Palabras para buscar']
+    ['destacado', 'Destacado'], ['nuevo', 'Nuevo'], ['estado', 'Estado'], ['etiquetas', 'Palabras para buscar'],
+    ['presentacion', 'Presentación'], ['coloresAgotados', 'Colores agotados']
   ];
 
   // Otros nombres de columna que también se aceptan.
@@ -22,7 +23,8 @@
     'ocasiones': 'tematicas', 'precio menudeo': 'precio', 'unidad': 'unidad', 'peso': 'peso', 'peso g': 'peso',
     'peso gramos': 'peso', 'peso en gramos': 'peso', 'detalles': 'detalles', 'color': 'colores', 'opcion': 'opcionNombre',
     'valores': 'opcionValores', 'opciones': 'opcionValores', 'imagen': 'foto', 'fotos': 'foto',
-    'fotos por color': 'fotosPorOpcion', 'disponible': 'estado', 'etiquetas': 'etiquetas', 'palabras clave': 'etiquetas'
+    'fotos por color': 'fotosPorOpcion', 'disponible': 'estado', 'etiquetas': 'etiquetas', 'palabras clave': 'etiquetas',
+    'tamano': 'presentacion', 'medida': 'presentacion', 'agotados': 'coloresAgotados', 'colores sin existencia': 'coloresAgotados'
   };
 
   var ALFABETO = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ';
@@ -190,6 +192,72 @@
     return { nombre: texto, color: COLOR_DESCONOCIDO, conocido: false };
   }
 
+  /* ---------- cartas de colores de marca (cartas.js) ---------- */
+  function copia(o) { return JSON.parse(JSON.stringify(o)); }
+
+  // Tonos de una carta (o de una de sus familias) como opciones de color de la tienda.
+  function tonosDeCarta(cartas, clave, familia) {
+    var c = cartas && cartas[clave];
+    if (!c) return [];
+    var salida = [];
+    c.familias.forEach(function (f) {
+      if (familia && f.id !== familia) return;
+      f.tonos.forEach(function (t) {
+        salida.push({
+          nombre: t[0] + ' ' + t[1], color: t[3], codigo: t[0], ingles: t[2],
+          familia: f.nombre, acabado: f.acabado, carta: c.nombre, dibujo: { tipo: 'tono', estilo: f.acabado }
+        });
+      });
+    });
+    return salida;
+  }
+
+  function indiceCartas(cartas) {
+    var idx = { tonos: {}, grupos: [] };
+    Object.keys(cartas || {}).forEach(function (clave) {
+      var c = cartas[clave], marca = normalizar(c.nombre);
+      var todos = tonosDeCarta(cartas, clave);
+      todos.forEach(function (t) { idx.tonos[t.codigo] = t; });
+      idx.grupos.push({ nombres: [marca, 'carta ' + marca, marca + ' todos', 'carta ' + marca + ' completa'], tonos: todos, texto: 'Carta ' + c.nombre });
+      c.familias.forEach(function (f) {
+        idx.grupos.push({ nombres: [marca + ' ' + normalizar(f.nombre), normalizar(f.nombre)], tonos: tonosDeCarta(cartas, clave, f.id), texto: c.nombre + ' ' + f.nombre });
+      });
+    });
+    return idx;
+  }
+
+  // "Carta Sempertex", "Sempertex Reflex" o "015" -> tonos de la carta; null si el texto no es de una carta.
+  function tonosDeTexto(texto, idx) {
+    var n = normalizar(texto);
+    var g = idx.grupos.find(function (x) { return x.nombres.indexOf(n) !== -1; });
+    if (g) return g.tonos.map(copia);
+    // Google Sheets convierte "015" en 15: se acepta el código sin ceros a la izquierda.
+    var m = String(texto).trim().match(/^(\d{1,3})(\s|$)/);
+    var codigo = m && ('00' + m[1]).slice(-3);
+    if (codigo && idx.tonos[codigo]) return [copia(idx.tonos[codigo])];
+    return null;
+  }
+
+  // Ilustración de portada para un producto con carta: un racimo de tonos variados.
+  function dibujoDeCarta(opciones) {
+    // Se saltan blancos, transparentes y negros para que el racimo luzca.
+    var vivos = opciones.filter(function (o) {
+      var n = parseInt(o.color.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+      var claro = (Math.max(r, g, b) + Math.min(r, g, b)) / 510;
+      return claro > 0.18 && claro < 0.8 && Math.max(r, g, b) - Math.min(r, g, b) > 40;
+    });
+    if (vivos.length < 12) vivos = opciones;
+    var paso = Math.max(1, vivos.length / 12);
+    var colores = [];
+    for (var i = 0; i < 12 && Math.floor(i * paso) < vivos.length; i++) colores.push(vivos[Math.floor(i * paso)].color);
+    return { tipo: 'cartaColores', colores: colores };
+  }
+
+  function numeroDe(t) {
+    var m = String(t).match(/\d+(\.\d+)?/);
+    return m ? parseFloat(m[0]) : NaN;
+  }
+
   /* ---------- coincidencias ---------- */
   // Busca por id o nombre; acepta nombres parciales si solo coinciden con uno.
   function coincidir(valor, elementos) {
@@ -306,6 +374,7 @@
     var tematicas = (ctx.tematicas || []).slice();
     var tematicasNuevas = [];
     var colores = indiceColores(ctx.colores);
+    var cartas = indiceCartas(ctx.cartas);
     var ejemplos = ctx.ejemplos || {};
     var usados = {};
 
@@ -355,7 +424,8 @@
       var est = estado(v('estado'));
       if (!est) { anotar('aviso', 'El estado "' + v('estado') + '" no se reconoce; se publicó como Visible. Usa Visible, Agotado u Oculto.'); est = 'visible'; }
 
-      var id = slug(v('codigo') || nombre);
+      var presentacion = v('presentacion');
+      var id = slug((v('codigo') || nombre) + (presentacion ? ' ' + presentacion : ''));
       if (!id) { anotar('error', 'No se pudo crear un código para este producto.'); continue; }
       if (usados[id]) {
         var n = 2;
@@ -378,6 +448,7 @@
         nuevo: siNo(v('nuevo')),
         fila: numFila
       };
+      if (presentacion) p.presentacion = presentacion;
 
       // Mayoreo
       var pm = numero(v('precioMayoreo')), md = numero(v('mayoreoDesde'));
@@ -433,22 +504,41 @@
         anotar('aviso', 'La opción "' + v('opcionNombre') + '" no tiene valores en "Valores de la opción". No se mostró.');
       }
       var cols = lista(v('colores'));
+      var grupoColor = null;
       if (cols.length) {
-        var desconocidos = [];
-        variantes.push({
-          nombre: 'Color', tipo: 'color',
-          opciones: cols.map(function (x) {
+        var desconocidos = [], vistos = {};
+        grupoColor = { nombre: 'Color', tipo: 'color', opciones: [] };
+        cols.forEach(function (x) {
+          var nuevas = tonosDeTexto(x, cartas);
+          if (!nuevas) {
             var c = leerColor(x, colores);
             if (!c.conocido) desconocidos.push(x);
-            return { nombre: c.nombre, color: c.color };
-          })
+            nuevas = [{ nombre: c.nombre, color: c.color }];
+          }
+          nuevas.forEach(function (o) {
+            if (vistos[o.nombre]) return;
+            vistos[o.nombre] = true;
+            grupoColor.opciones.push(o);
+          });
         });
+        variantes.push(grupoColor);
         if (desconocidos.length) {
           anotar('aviso', 'Color' + (desconocidos.length > 1 ? 'es' : '') + ' sin código: ' + desconocidos.join(', ') +
             '. Se muestran en gris; escribe el código junto al nombre, por ejemplo "Turquesa #1fb5ad".');
         }
       }
       if (variantes.length) p.variantes = variantes;
+
+      // Colores agotados: "015, 390" o "Rojo". Se marcan sin existencia (en un producto con
+      // tamaños, solo en el tamaño de esta fila).
+      var agotados = [];
+      lista(v('coloresAgotados')).forEach(function (x) {
+        var buscados = (tonosDeTexto(x, cartas) || [{ nombre: x }]).map(function (o) { return normalizar(o.nombre); });
+        var encontrados = grupoColor ? grupoColor.opciones.filter(function (o) { return buscados.indexOf(normalizar(o.nombre)) !== -1; }) : [];
+        if (!encontrados.length) anotar('aviso', 'En "Colores agotados", "' + x + '" no es uno de los colores del producto.');
+        encontrados.forEach(function (o) { if (agotados.indexOf(o.nombre) === -1) agotados.push(o.nombre); });
+      });
+      if (agotados.length) p.coloresAgotados = agotados;
 
       // Fotos
       var foto = enlaceFoto(v('foto'));
@@ -476,6 +566,8 @@
             if (oe && oe.color && !o.color) o.color = oe.color;
           });
         });
+      } else if (grupoColor && grupoColor.opciones.some(function (o) { return o.carta; })) {
+        p.dibujo = dibujoDeCarta(grupoColor.opciones);
       } else {
         p.dibujo = adivinarDibujo(nombre, categoria.id, p.unidad);
         if (/^(rollo|bolsa|pliegos)$/.test(p.dibujo.tipo)) {
@@ -495,12 +587,164 @@
       productos.push(p);
     }
 
+    productos = agruparPresentaciones(productos, ejemplos, usados, problemas);
     return { productos: productos, tematicas: tematicas, tematicasNuevas: tematicasNuevas, problemas: problemas, filasLeidas: filasLeidas };
   }
 
+  /* ---------- tamaños: varias filas, un producto ---------- */
+
+  // Las filas con el mismo nombre y categoría que tienen "Presentación" (5", 12", 18"…) se
+  // unen en un producto con selector de tamaño. Cada tamaño conserva su precio, mayoreo,
+  // peso, foto y colores agotados.
+  function agruparPresentaciones(productos, ejemplos, usados, problemas) {
+    var grupos = {}, orden = [];
+    productos.forEach(function (p) {
+      if (!p.presentacion) { orden.push(p); return; }
+      var clave = normalizar(p.nombre) + '|' + p.categoria;
+      if (!grupos[clave]) { grupos[clave] = []; orden.push(grupos[clave]); }
+      grupos[clave].push(p);
+    });
+    return orden.map(function (x) {
+      if (!Array.isArray(x)) {
+        marcarAgotados(x);
+        delete x.coloresAgotados;
+        return x;
+      }
+      return unirPresentaciones(x, ejemplos, usados, problemas);
+    });
+  }
+
+  function marcarAgotados(p) {
+    var gc = (p.variantes || []).find(function (g) { return g.tipo === 'color'; });
+    if (!gc || !p.coloresAgotados) return;
+    gc.opciones.forEach(function (o) { if (p.coloresAgotados.indexOf(o.nombre) !== -1) o.agotado = true; });
+  }
+
+  function unirPresentaciones(filas, ejemplos, usados, problemas) {
+    var base = filas[0];
+    var visibles = filas.filter(function (f) { return f.estado !== 'oculto'; });
+    var lista = (visibles.length ? visibles : filas).slice();
+    if (lista.every(function (f) { return !isNaN(numeroDe(f.presentacion)); })) {
+      lista.sort(function (a, b) { return numeroDe(a.presentacion) - numeroDe(b.presentacion); });
+    }
+    var primero = lista[0];
+
+    var id = slug(base.nombre);
+    if (usados[id] && usados[id] !== 'grupo') {
+      problemas.push({ fila: base.fila, nombre: base.nombre, tipo: 'aviso', mensaje: 'El código "' + id + '" ya lo usa la fila ' + usados[id] + '; este producto con tamaños quedó como "' + id + '-tamanos".' });
+      id += '-tamanos';
+    }
+    usados[id] = 'grupo';
+
+    var g = {
+      id: id,
+      nombre: base.nombre,
+      categoria: base.categoria,
+      tematicas: [],
+      precio: Math.min.apply(null, lista.map(function (f) { return f.precio; })),
+      unidad: primero.unidad,
+      peso: primero.peso,
+      descripcion: (filas.find(function (f) { return f.descripcion; }) || {}).descripcion || '',
+      estado: !visibles.length ? 'oculto' : visibles.every(function (f) { return f.estado === 'agotado'; }) ? 'agotado' : 'visible',
+      destacado: filas.some(function (f) { return f.destacado; }),
+      nuevo: filas.some(function (f) { return f.nuevo; }),
+      fila: base.fila
+    };
+    if (primero.mayoreo) g.mayoreo = primero.mayoreo;
+    filas.forEach(function (f) {
+      f.tematicas.forEach(function (t) { if (g.tematicas.indexOf(t) === -1) g.tematicas.push(t); });
+    });
+    var conDetalles = filas.find(function (f) { return f.detalles; });
+    if (conDetalles) g.detalles = conDetalles.detalles;
+    var etiquetas = filas.map(function (f) { return f.etiquetas; }).filter(Boolean);
+    if (etiquetas.length) g.etiquetas = etiquetas.filter(function (e, i) { return etiquetas.indexOf(e) === i; }).join(' ');
+    if (primero.imagen) g.imagen = primero.imagen;
+
+    // Colores: todos los de las filas; cada tamaño anota los que no tiene o tiene agotados.
+    var colores = [], porNombre = {};
+    lista.forEach(function (f) {
+      var gc = (f.variantes || []).find(function (x) { return x.tipo === 'color'; });
+      if (gc) gc.opciones.forEach(function (o) { if (!porNombre[o.nombre]) { porNombre[o.nombre] = true; colores.push(o); } });
+    });
+    var tamanos = {
+      nombre: 'Tamaño', tipo: 'tamano',
+      opciones: lista.map(function (f) {
+        var gc = (f.variantes || []).find(function (x) { return x.tipo === 'color'; });
+        var propios = gc ? gc.opciones.map(function (o) { return o.nombre; }) : [];
+        var o = { nombre: f.presentacion, precio: f.precio, peso: f.peso, unidad: f.unidad };
+        if (f.mayoreo) o.mayoreo = f.mayoreo;
+        if (f.imagen) o.imagen = f.imagen;
+        if (f.estado === 'agotado') o.agotado = true;
+        var faltan = colores.map(function (c) { return c.nombre; }).filter(function (n) {
+          return propios.indexOf(n) === -1 || (f.coloresAgotados || []).indexOf(n) !== -1;
+        });
+        if (faltan.length) o.sinColores = faltan;
+        var n = numeroDe(f.presentacion);
+        if (!isNaN(n)) o.dibujo = { tamano: n };
+        return o;
+      })
+    };
+    // Un color que falta en todos los tamaños queda como agotado.
+    colores.forEach(function (c) {
+      var enTodos = tamanos.opciones.every(function (t) { return (t.sinColores || []).indexOf(c.nombre) !== -1; });
+      if (!enTodos) return;
+      c.agotado = true;
+      tamanos.opciones.forEach(function (t) {
+        t.sinColores = t.sinColores.filter(function (n) { return n !== c.nombre; });
+        if (!t.sinColores.length) delete t.sinColores;
+      });
+    });
+    var otra = (primero.variantes || []).find(function (x) { return x.tipo !== 'color'; });
+    g.variantes = [tamanos].concat(otra ? [otra] : [], colores.length ? [{ nombre: 'Color', tipo: 'color', opciones: colores }] : []);
+
+    // Ilustración
+    var ejemplo = ejemplos[id];
+    if (ejemplo) {
+      g.dibujo = copia(ejemplo.dibujo);
+      g.variantes.forEach(function (gr) {
+        var ge = (ejemplo.variantes || []).find(function (x) { return x.nombre === gr.nombre || (gr.tipo && x.tipo === gr.tipo); });
+        if (!ge) return;
+        gr.opciones.forEach(function (o) {
+          var oe = ge.opciones.find(function (x) { return x.nombre === o.nombre; });
+          if (oe && oe.dibujo) o.dibujo = copia(oe.dibujo);
+          if (oe && oe.color && !o.color) o.color = oe.color;
+        });
+      });
+    } else {
+      g.dibujo = colores.some(function (o) { return o.carta; }) ? dibujoDeCarta(colores) : copia(primero.dibujo);
+      var medidas = tamanos.opciones.map(function (t) { return t.dibujo && t.dibujo.tamano; });
+      if (medidas.every(Boolean)) g.dibujo.tamanos = medidas;
+    }
+    if (filas.every(function (f) { return f.sinFoto; })) g.sinFoto = true;
+    g.filas = filas.map(function (f) { return f.fila; });
+    return g;
+  }
+
   /* ---------- productos -> filas (para crear la plantilla) ---------- */
+  // Colores como texto para la hoja: carta completa o familias juntas, códigos sueltos y nombres.
+  function textoColores(opciones, idx, colores) {
+    var salida = [], i = 0;
+    var nom = function (o) { return o.nombre; };
+    while (i < opciones.length) {
+      var o = opciones[i];
+      if (o.codigo) {
+        var completo = idx.grupos.find(function (g) {
+          return g.tonos.length > 1 && opciones.slice(i, i + g.tonos.length).map(nom).join('|') === g.tonos.map(nom).join('|');
+        });
+        if (completo) { salida.push(completo.texto); i += completo.tonos.length; continue; }
+        salida.push(o.codigo);
+      } else {
+        var c = colores[normalizar(o.nombre)];
+        salida.push(c && c.color === o.color ? o.nombre : o.nombre + ' ' + o.color);
+      }
+      i++;
+    }
+    return salida.join(', ');
+  }
+
   function filasDesdeProductos(productos, ctx) {
     var colores = indiceColores(ctx.colores);
+    var cartas = indiceCartas(ctx.cartas);
     var catNombre = {}, temaNombre = {};
     ctx.categorias.forEach(function (c) { catNombre[c.id] = c.nombre; });
     ctx.tematicas.forEach(function (t) { temaNombre[t.id] = t.nombre; });
@@ -508,35 +752,47 @@
     var filas = [COLUMNAS.map(function (c) { return c[1]; })];
     productos.forEach(function (p) {
       var grupoColor = (p.variantes || []).find(function (g) { return g.tipo === 'color'; });
-      var otro = (p.variantes || []).find(function (g) { return g.tipo !== 'color'; });
+      var tam = (p.variantes || []).find(function (g) { return g.tipo === 'tamano'; });
+      var otro = (p.variantes || []).find(function (g) { return g.tipo !== 'color' && g.tipo !== 'tamano'; });
       var fotos = [];
-      (p.variantes || []).forEach(function (g) { g.opciones.forEach(function (o) { if (o.imagen) fotos.push(o.nombre + ' = ' + o.imagen); }); });
-      var celdas = {
-        codigo: p.id,
-        nombre: p.nombre,
-        categoria: catNombre[p.categoria],
-        tematicas: p.tematicas.map(function (t) { return temaNombre[t] || t; }).join(', '),
-        precio: p.precio,
-        precioMayoreo: p.mayoreo ? p.mayoreo.precio : '',
-        mayoreoDesde: p.mayoreo ? p.mayoreo.min : '',
-        unidad: p.unidad,
-        peso: p.peso,
-        descripcion: p.descripcion,
-        detalles: (p.detalles || []).map(function (d) { return d[0] + ': ' + d[1]; }).join('; '),
-        colores: grupoColor ? grupoColor.opciones.map(function (o) {
-          var c = colores[normalizar(o.nombre)];
-          return c && c.color === o.color ? o.nombre : o.nombre + ' ' + o.color;
-        }).join(', ') : '',
-        opcionNombre: otro ? otro.nombre : '',
-        opcionValores: otro ? comprimir(otro.opciones.map(function (o) { return o.nombre; })) : '',
-        foto: p.imagen || '',
-        fotosPorOpcion: fotos.join('; '),
-        destacado: p.destacado ? 'Sí' : 'No',
-        nuevo: p.nuevo ? 'Sí' : 'No',
-        estado: p.estado === 'agotado' ? 'Agotado' : p.estado === 'oculto' ? 'Oculto' : 'Visible',
-        etiquetas: p.etiquetas || ''
+      (p.variantes || []).forEach(function (g) {
+        if (g.tipo === 'tamano') return;
+        g.opciones.forEach(function (o) { if (o.imagen) fotos.push(o.nombre + ' = ' + o.imagen); });
+      });
+      var colorTexto = function (n) {
+        var o = grupoColor.opciones.find(function (x) { return x.nombre === n; });
+        return o && o.codigo ? o.codigo : n;
       };
-      filas.push(COLUMNAS.map(function (c) { return celdas[c[0]]; }));
+      var agotadosSiempre = grupoColor ? grupoColor.opciones.filter(function (o) { return o.agotado; }).map(function (o) { return o.nombre; }) : [];
+      var presentaciones = tam ? tam.opciones : [{ nombre: '', precio: p.precio, mayoreo: p.mayoreo, peso: p.peso, unidad: p.unidad, imagen: p.imagen }];
+      presentaciones.forEach(function (t) {
+        var agotados = agotadosSiempre.concat(t.sinColores || []);
+        var celdas = {
+          codigo: tam ? '' : p.id,
+          nombre: p.nombre,
+          categoria: catNombre[p.categoria],
+          tematicas: p.tematicas.map(function (x) { return temaNombre[x] || x; }).join(', '),
+          precio: t.precio,
+          precioMayoreo: t.mayoreo ? t.mayoreo.precio : '',
+          mayoreoDesde: t.mayoreo ? t.mayoreo.min : '',
+          unidad: t.unidad,
+          peso: t.peso,
+          descripcion: p.descripcion,
+          detalles: (p.detalles || []).map(function (d) { return d[0] + ': ' + d[1]; }).join('; '),
+          colores: grupoColor ? textoColores(grupoColor.opciones, cartas, colores) : '',
+          opcionNombre: otro ? otro.nombre : '',
+          opcionValores: otro ? comprimir(otro.opciones.map(function (o) { return o.nombre; })) : '',
+          foto: t.imagen || '',
+          fotosPorOpcion: fotos.join('; '),
+          destacado: p.destacado ? 'Sí' : 'No',
+          nuevo: p.nuevo ? 'Sí' : 'No',
+          estado: (t.agotado || p.estado === 'agotado') ? 'Agotado' : p.estado === 'oculto' ? 'Oculto' : 'Visible',
+          etiquetas: p.etiquetas || '',
+          presentacion: t.nombre,
+          coloresAgotados: agotados.map(colorTexto).join(', ')
+        };
+        filas.push(COLUMNAS.map(function (c) { return celdas[c[0]]; }));
+      });
     });
     return filas;
   }
@@ -551,6 +807,8 @@
     enlaceFoto: enlaceFoto,
     enlaceCSV: enlaceCSV,
     adivinarDibujo: adivinarDibujo,
+    tonosDeCarta: tonosDeCarta,
+    dibujoDeCarta: dibujoDeCarta,
     productosDesdeFilas: productosDesdeFilas,
     filasDesdeProductos: filasDesdeProductos
   };

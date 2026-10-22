@@ -288,9 +288,11 @@
 
   function globoLatex(l, x, y, s, c, estilo) {
     var relleno, extra = '', b = 0.38;
+    var claro = estilo === 'confeti' || estilo === 'transparente';
     if (estilo === 'cromo') { relleno = l.cromo(c); b = 0.7; }
     else if (estilo === 'perlado') { relleno = l.mate(c, 0.55); b = 0.55; }
-    else if (estilo === 'confeti') { relleno = 'rgba(255,255,255,0.28)'; b = 0.6; }
+    else if (estilo === 'neon') { relleno = l.mate(c, 0.18); b = 0.3; }
+    else if (claro) { relleno = 'rgba(255,255,255,0.28)'; b = 0.6; }
     else { relleno = l.mate(c); }
 
     if (estilo === 'confeti') {
@@ -302,9 +304,11 @@
           '" r="' + (1.8 + r() * 1.8).toFixed(1) + '" fill="' + cols[i % 3] + '"/>';
       }
     }
-    var borde = estilo === 'confeti' ? ' stroke="#bdb0ba" stroke-width="1.4"' : '';
-    var nudo = estilo === 'confeti' ? '#bdb0ba' : oscurecer(c, 0.15);
-    return '<g transform="translate(' + x + ' ' + y + ') scale(' + s + ')">' +
+    var borde = claro ? ' stroke="#bdb0ba" stroke-width="1.4"' : '';
+    var nudo = claro ? '#bdb0ba' : oscurecer(c, 0.15);
+    // El neón brilla: un halo del mismo color alrededor del globo.
+    var resplandor = estilo === 'neon' ? '<path d="' + RUTA_LATEX + '" fill="' + c + '" opacity="0.22" transform="scale(1.12)"/>' : '';
+    return '<g transform="translate(' + x + ' ' + y + ') scale(' + s + ')">' + resplandor +
       '<path d="' + RUTA_LATEX + '" fill="' + relleno + '"' + borde + '/>' + extra +
       '<path d="M-4 46 L0 39 L4 46 Z" fill="' + nudo + '"/>' +
       brillo(-14, -20, 6, 11, -25, b) + '</g>';
@@ -486,6 +490,47 @@
     }).join('');
     var impreso = d.texto ? texto(100, 66, d.texto, 11, tintaSobre(cols ? cols[2 % cols.length] : c)) : '';
     return s + hilos + globos + impreso + etiqueta(d.etiqueta);
+  };
+
+  // Globo en el tono elegido. Con d.tamanos ([5, 12, 18]) compara los tamaños a escala
+  // y resalta d.tamano; los textos usan currentColor para leerse en modo claro y oscuro.
+  tipos.tono = function (l, d) {
+    var c = d.color || '#e9407a';
+    var estilo = d.estilo || 'mate';
+    var medidas = d.tamanos;
+    if (!medidas || !medidas.length) {
+      return halo(c) + hilo(100, 178, 100, 198) + globoLatex(l, 100, 92, 2.1, c, estilo);
+    }
+    var mayor = Math.max.apply(null, medidas);
+    var altoMayor = 100, base = 160, hueco = 10;
+    var escalas = medidas.map(function (m) { return (altoMayor * m / mayor) / 80; });
+    var anchos = escalas.map(function (e) { return 68 * e; });
+    var x = 100 - (anchos.reduce(function (a, b) { return a + b; }, 0) + hueco * (medidas.length - 1)) / 2;
+    var s = '<path d="M14 ' + (base + 1) + ' H186" stroke="currentColor" stroke-width="1" opacity="0.25"/>';
+    medidas.forEach(function (m, i) {
+      var e = escalas[i], cx = x + anchos[i] / 2, cy = base - 46 * e;
+      var elegido = !d.tamano || d.tamano === m;
+      s += '<ellipse cx="' + cx.toFixed(1) + '" cy="' + (base + 1) + '" rx="' + (anchos[i] * 0.32).toFixed(1) + '" ry="2" fill="currentColor" opacity="0.15"/>';
+      if (elegido) {
+        s += globoLatex(l, cx.toFixed(1), cy.toFixed(1), e.toFixed(3), c, estilo);
+      } else {
+        s += '<g transform="translate(' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ') scale(' + e.toFixed(3) + ')">' +
+          '<path d="' + RUTA_LATEX + '" fill="' + c + '" fill-opacity="0.12" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.4" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></g>';
+      }
+      s += '<text x="' + cx.toFixed(1) + '" y="' + (base + 17) + '" text-anchor="middle" font-family="' + FUENTE + '" font-weight="800" font-size="13" fill="currentColor" opacity="' + (elegido ? 1 : 0.6) + '">' + m + '"</text>' +
+        '<text x="' + cx.toFixed(1) + '" y="' + (base + 29) + '" text-anchor="middle" font-family="' + FUENTE + '" font-size="9.5" fill="currentColor" opacity="' + (elegido ? 0.85 : 0.5) + '">' + Math.round(m * 2.54) + ' cm</text>';
+      x += anchos[i] + hueco;
+    });
+    return s;
+  };
+
+  // Racimo de globos de muchos tonos: la portada de un producto con carta de colores.
+  tipos.cartaColores = function (l, d) {
+    var cols = d.colores && d.colores.length ? d.colores : ['#e9407a'];
+    var lugares = [[40, 56], [80, 50], [120, 50], [160, 56], [24, 98], [64, 92], [104, 92], [144, 92], [180, 100], [50, 136], [100, 132], [150, 136]];
+    return halo(cols[0]) + lugares.map(function (p, i) {
+      return globoLatex(l, p[0], p[1], 0.62, cols[i % cols.length], 'mate');
+    }).join('') + etiqueta(d.etiqueta);
   };
 
   tipos.inflador = function (l, d) {

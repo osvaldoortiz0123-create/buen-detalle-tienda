@@ -4,11 +4,12 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 globalThis.window = globalThis;
-require(path.join(__dirname, '..', 'js', 'productos.js'));
+require(path.join(__dirname, '..', 'js', 'cartas.js'));
 const H = require(path.join(__dirname, '..', 'js', 'hoja.js'));
+require(path.join(__dirname, '..', 'js', 'productos.js'));
 
 const ejemplos = Object.fromEntries(globalThis.PRODUCTOS.map((p) => [p.id, p]));
-const ctx = { categorias: globalThis.CATEGORIAS, tematicas: globalThis.TEMATICAS, colores: globalThis.COLORES, ejemplos };
+const ctx = { categorias: globalThis.CATEGORIAS, tematicas: globalThis.TEMATICAS, colores: globalThis.COLORES, cartas: globalThis.CARTAS, ejemplos };
 const ctxSinEjemplos = { ...ctx, ejemplos: {} };
 const ENC = H.COLUMNAS.map((c) => c[1]);
 
@@ -189,4 +190,87 @@ test('cada producto de ejemplo tiene una ilustración aunque no se reconozca su 
   assert.equal(por['bolsa-celofan-15x25-100'].tipo, 'bolsaCelofan');
   assert.equal(por['papel-kraft-rollo-10m'].patron, 'fibras');
   assert.equal(por['mono-estrella-bolsa-50'].forma, 'estrella');
+});
+
+test('carta de colores: completa, por familia y por código', () => {
+  const r = leer(hoja([
+    { 'Nombre': 'Globo A', 'Categoría': 'Globos de látex', 'Precio': '10', 'Peso (g)': '5', 'Descripción': 'x', 'Colores': 'Carta Sempertex' },
+    { 'Nombre': 'Globo B', 'Categoría': 'Globos de látex', 'Precio': '10', 'Peso (g)': '5', 'Descripción': 'x', 'Colores': 'Sempertex Reflex, 015, Rojo' }
+  ]), ctx);
+  assert.deepEqual(r.problemas, []);
+  const [a, b] = r.productos;
+  assert.equal(a.variantes[0].opciones.length, 85);
+  assert.equal(a.dibujo.tipo, 'cartaColores');
+  const nombres = b.variantes[0].opciones.map((o) => o.nombre);
+  assert.equal(nombres.length, 11 + 1 + 1);
+  assert.ok(nombres.includes('970 Dorado') && nombres.includes('015 Rojo') && nombres.includes('Rojo'));
+  const dorado = b.variantes[0].opciones.find((o) => o.codigo === '970');
+  assert.equal(dorado.familia, 'Reflex');
+  assert.deepEqual(dorado.dibujo, { tipo: 'tono', estilo: 'cromo' });
+});
+
+test('tamaños: filas con el mismo nombre forman un producto con precio por tamaño', () => {
+  const base = { 'Nombre': 'Globo Sempertex redondo', 'Categoría': 'Globos de látex', 'Colores': 'Carta Sempertex', 'Descripción': 'x', 'Temáticas': 'Cumpleaños' };
+  const r = leer(hoja([
+    { ...base, 'Presentación': '18"', 'Precio': '265', 'Peso (g)': '240', 'Se vende por': 'bolsa con 25 piezas', 'Colores agotados': '015, 390' },
+    { ...base, 'Presentación': '5"', 'Precio': '135', 'Precio mayoreo': '120', 'Mayoreo desde': '6', 'Peso (g)': '120', 'Se vende por': 'bolsa con 100 piezas', 'Colores agotados': '390' },
+    { ...base, 'Presentación': '12"', 'Precio': '175', 'Peso (g)': '170', 'Se vende por': 'bolsa con 50 piezas', 'Estado': 'Agotado', 'Colores agotados': '390', 'Temáticas': 'Bodas' },
+    { 'Nombre': 'Otro', 'Categoría': 'Papelería', 'Precio': '5', 'Peso (g)': '5', 'Descripción': 'x' }
+  ]), ctx);
+  assert.deepEqual(r.problemas, []);
+  assert.equal(r.productos.length, 2);
+  const p = r.productos[0];
+  assert.equal(p.id, 'globo-sempertex-redondo');
+  assert.equal(p.precio, 135);
+  assert.equal(p.unidad, 'bolsa con 100 piezas');
+  assert.deepEqual(p.tematicas, ['cumpleanos', 'bodas']);
+  const tam = p.variantes[0];
+  assert.equal(tam.tipo, 'tamano');
+  assert.deepEqual(tam.opciones.map((o) => o.nombre), ['5"', '12"', '18"']);
+  assert.deepEqual(tam.opciones.map((o) => o.precio), [135, 175, 265]);
+  assert.deepEqual(tam.opciones[0].mayoreo, { min: 6, precio: 120 });
+  assert.equal(tam.opciones[1].agotado, true);
+  assert.deepEqual(tam.opciones[2].sinColores, ['015 Rojo']);
+  assert.deepEqual(tam.opciones.map((o) => o.dibujo.tamano), [5, 12, 18]);
+  // 390 está agotado en los tres tamaños: queda agotado en general.
+  const colores = p.variantes[1].opciones;
+  assert.equal(colores.length, 85);
+  assert.equal(colores.find((o) => o.codigo === '390').agotado, true);
+  assert.ok(!tam.opciones[0].sinColores);
+  assert.deepEqual(p.dibujo.tamanos, [5, 12, 18]);
+});
+
+test('colores agotados en un producto sin tamaños y aviso si no existen', () => {
+  const r = leer(hoja([
+    { 'Nombre': 'Listón', 'Categoría': 'Envolturas', 'Precio': '20', 'Peso (g)': '50', 'Descripción': 'x', 'Colores': 'Rojo, Azul, Verde', 'Colores agotados': 'Azul, Morado' }
+  ]), ctx);
+  const opciones = r.productos[0].variantes[0].opciones;
+  assert.deepEqual(opciones.map((o) => !!o.agotado), [false, true, false]);
+  assert.equal(r.problemas.length, 1);
+  assert.match(r.problemas[0].mensaje, /"Morado" no es uno de los colores/);
+});
+
+test('el producto Sempertex de ejemplo se exporta en 3 filas y vuelve igual', () => {
+  const semp = globalThis.PRODUCTOS.find((p) => p.id === 'globo-sempertex-redondo');
+  const filas = H.filasDesdeProductos([semp], ctx);
+  assert.equal(filas.length, 4);
+  const col = Object.fromEntries(filas[0].map((t, i) => [t, i]));
+  assert.deepEqual(filas.slice(1).map((f) => f[col['Presentación']]), ['5"', '12"', '18"']);
+  assert.ok(filas.slice(1).every((f) => f[col['Colores']] === 'Carta Sempertex'));
+  const r = H.productosDesdeFilas(H.leerCSV(H.aCSV(filas)), ctx);
+  assert.deepEqual(r.problemas, []);
+  const p = r.productos[0];
+  assert.deepEqual(p.variantes[0].opciones, semp.variantes[0].opciones);
+  assert.deepEqual(p.variantes[1].opciones, semp.variantes[1].opciones);
+  assert.deepEqual(p.dibujo, semp.dibujo);
+});
+
+test('códigos de tono sin ceros a la izquierda (Google Sheets convierte 015 en 15)', () => {
+  const r = leer(hoja([
+    { 'Nombre': 'Globo', 'Categoría': 'Globos de látex', 'Precio': '10', 'Peso (g)': '5', 'Descripción': 'x', 'Colores': '15, 5, 970', 'Colores agotados': '5' }
+  ]), ctx);
+  assert.deepEqual(r.problemas, []);
+  const opciones = r.productos[0].variantes[0].opciones;
+  assert.deepEqual(opciones.map((o) => o.nombre), ['015 Rojo', '005 Blanco', '970 Dorado']);
+  assert.equal(opciones[1].agotado, true);
 });

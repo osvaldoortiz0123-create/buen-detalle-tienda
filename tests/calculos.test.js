@@ -5,6 +5,8 @@ const path = require('node:path');
 
 globalThis.window = globalThis;
 require(path.join(__dirname, '..', 'js', 'config.js'));
+require(path.join(__dirname, '..', 'js', 'cartas.js'));
+require(path.join(__dirname, '..', 'js', 'hoja.js'));
 require(path.join(__dirname, '..', 'js', 'productos.js'));
 const C = require(path.join(__dirname, '..', 'js', 'calculos.js'));
 

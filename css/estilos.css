@@ -345,6 +345,7 @@ svg[aria-hidden="true"] { flex: none; }
 .tarjeta-fantasma .tarjeta-info span + span { width: 50%; height: 20px; margin-top: 6px; }
 .cargando-texto { color: var(--tinta-2); margin-bottom: 14px; }
 @keyframes latido { from { opacity: 1; } to { opacity: .55; } }
+.tarjeta-desde { font-family: var(--f-texto); font-size: 13px; font-weight: 600; color: var(--tinta-2); }
 .tarjeta-unidad { font-size: 12px; color: var(--tinta-2); margin-top: -3px; }
 .tarjeta-mayoreo { font-size: 12.5px; font-weight: 700; color: var(--exito); }
 .tarjeta-vars { font-size: 12px; color: var(--tinta-2); margin-top: auto; padding-top: 2px; }
@@ -634,6 +635,119 @@ svg[aria-hidden="true"] { flex: none; }
 .tabla tbody tr:last-child th, .tabla tbody tr:last-child td { border-bottom: 0; }
 .ejemplo { padding: 12px 14px; border-radius: var(--radio-chico); background: var(--hundido); }
 .bloque-contacto .aviso-redes-botones { margin-top: 14px; }
+
+/* ---------- tamaños y carta de tonos ---------- */
+/* Los dibujos usan currentColor para sus textos (medidas en cm). */
+.producto-img, .tarjeta-img, .linea-img, .rev-img, .sugerencia-img { color: var(--tinta-2); }
+
+.tamanos { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.tamano {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 10px 12px; text-align: left;
+  border: 1.5px solid var(--linea); border-radius: var(--radio-chico); background: var(--superficie); cursor: pointer;
+}
+.tamano:hover { border-color: var(--tinta-2); }
+.tamano.activo { border: 2px solid var(--tinta); padding: 9.5px 11.5px; background: var(--hundido); }
+.tamano:disabled { opacity: .5; cursor: not-allowed; }
+.tamano-medida { font-family: var(--f-display); font-weight: 800; font-size: 22px; line-height: 1; }
+.tamano-cm { font-size: 12px; color: var(--tinta-2); }
+.tamano-precio { font-weight: 700; font-size: 15px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.tamano-unidad { font-size: 11.5px; color: var(--tinta-2); line-height: 1.25; }
+
+.tonos { border-radius: var(--radio); }
+.tonos.tonos-falta { outline: 2px solid var(--alerta); outline-offset: 6px; }
+.tonos-aviso { margin-bottom: 10px; padding: 8px 12px; border-radius: var(--radio-chico); background: var(--alerta-fondo); color: var(--alerta); font-size: 14px; font-weight: 600; }
+.tonos-filtro { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 6px; scrollbar-width: thin; }
+.tonos-filtro .filtro-op { white-space: nowrap; flex: none; }
+@media (min-width: 880px) { .tonos-filtro { flex-wrap: wrap; overflow: visible; } }
+.tonos-familia { margin-top: 12px; }
+.tonos-familia h3 { font-family: var(--f-texto); font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.tonos-familia h3 small { font-weight: 400; color: var(--tinta-2); font-size: 13px; }
+.tonos-rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 4px; }
+.tono {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 2px 6px; min-width: 0;
+  border: 1.5px solid transparent; border-radius: 10px; background: none; cursor: pointer; color: var(--tinta);
+}
+.tono:hover { background: var(--hundido); }
+.tono.activo { border: 2px solid var(--tinta); background: var(--hundido); padding: 7.5px 1.5px 5.5px; }
+.tono:disabled { opacity: .35; cursor: not-allowed; }
+.tono:disabled .tono-globo::before {
+  content: ""; position: absolute; left: -4px; right: -4px; top: 48%; height: 2px; background: var(--tinta); transform: rotate(-40deg);
+}
+.tono-cod { font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.tono-nom {
+  font-size: 11px; line-height: 1.2; color: var(--tinta-2); text-align: center; max-width: 100%; hyphens: auto;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.tonos-nota { margin-top: 10px; font-size: 12.5px; color: var(--tinta-2); }
+
+/* Globito de muestra dibujado con CSS; --c es el tono (se hereda del botón o va en el propio globito). */
+.tono-globo {
+  position: relative; display: block; flex: none; width: 30px; height: 36px;
+  border-radius: 50% 50% 48% 48% / 44% 44% 56% 56%;
+  background: var(--c);
+  background:
+    radial-gradient(ellipse 28% 20% at 33% 27%, rgba(255, 255, 255, .7), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(circle at 36% 32%, color-mix(in srgb, var(--c) 72%, white), var(--c) 55%, color-mix(in srgb, var(--c) 80%, black));
+  box-shadow: inset -2px -3px 5px rgba(0, 0, 0, .12);
+}
+.tono-globo::after {
+  content: ""; position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%);
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-bottom: 5px solid var(--c);
+  border-bottom-color: color-mix(in srgb, var(--c) 80%, black);
+}
+.tono-globo.acabado-perlado {
+  background:
+    radial-gradient(ellipse 34% 24% at 33% 27%, rgba(255, 255, 255, .85), rgba(255, 255, 255, 0) 75%),
+    radial-gradient(circle at 38% 34%, color-mix(in srgb, var(--c) 55%, white), var(--c) 60%, color-mix(in srgb, var(--c) 85%, black));
+}
+.tono-globo.acabado-cromo {
+  background:
+    radial-gradient(ellipse 18% 14% at 32% 24%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 80%),
+    linear-gradient(160deg, color-mix(in srgb, var(--c) 40%, white) 0%, var(--c) 32%, color-mix(in srgb, var(--c) 55%, black) 52%, color-mix(in srgb, var(--c) 55%, white) 70%, color-mix(in srgb, var(--c) 70%, black) 100%);
+}
+.tono-globo.acabado-neon { box-shadow: 0 0 9px 1px var(--c), inset -2px -3px 5px rgba(0, 0, 0, .1); }
+.tono-globo.acabado-transparente {
+  background: radial-gradient(ellipse 28% 20% at 33% 27%, rgba(255, 255, 255, .9), rgba(255, 255, 255, 0) 70%), rgba(255, 255, 255, .3);
+  box-shadow: inset 0 0 0 1.5px #b9aeb7;
+}
+.tono-globo.acabado-transparente::after { border-bottom-color: #b9aeb7; }
+.tono-globo.acabado-vacio { background: none; box-shadow: inset 0 0 0 1.5px var(--linea); }
+.tono-globo.acabado-vacio::after { border-bottom-color: var(--linea); }
+
+/* Barra de compra fija en celular para productos con carta de tonos. */
+.barra-compra {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+  display: flex; align-items: center; gap: 12px;
+  padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--superficie); border-top: 1px solid var(--linea); box-shadow: 0 -6px 18px rgba(0, 0, 0, .08);
+}
+.barra-compra-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; line-height: 1.3; color: var(--tinta-2); }
+.barra-compra-texto strong { color: var(--tinta); font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barra-compra .boton { min-height: 44px; padding: 0 16px; white-space: nowrap; }
+.pagina-con-barra { padding-bottom: 104px; }
+@media (min-width: 880px) {
+  .barra-compra { display: none; }
+  .pagina-con-barra { padding-bottom: 36px; }
+}
+
+/* Banda de portada de la carta de colores. */
+.banda-carta {
+  display: grid; gap: 18px; align-items: center; padding: 22px; border-radius: var(--radio);
+  background: var(--superficie); border: 1px solid var(--linea); color: inherit; text-decoration: none;
+  transition: box-shadow .15s;
+}
+.banda-carta:hover { box-shadow: var(--sombra); }
+.banda-carta h2 { font-size: clamp(22px, 3.4vw, 28px); margin-top: 6px; }
+.banda-carta-texto p:not(.sobretitulo) { color: var(--tinta-2); margin-top: 8px; max-width: 46ch; }
+.banda-carta-texto .boton { margin-top: 16px; }
+.banda-carta-tonos { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px 6px; justify-items: center; }
+@media (min-width: 820px) {
+  .banda-carta { grid-template-columns: 1fr 1.1fr; padding: 28px 32px; }
+  .banda-carta-tonos { grid-template-columns: repeat(7, 1fr); gap: 16px 10px; }
+  .banda-carta-tonos .tono-globo { width: 36px; height: 43px; }
+}
 
 /* ---------- producto agotado ---------- */
 .aviso-agotado { padding: 12px 14px; border-radius: var(--radio-chico); background: var(--alerta-fondo); color: var(--alerta); font-size: 14.5px; }
